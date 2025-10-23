@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -60,16 +61,17 @@ export default function Analytics() {
   return (
     <div className="min-h-screen pb-8">
       {/* Header */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900/30 px-6 py-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg shadow-emerald-500/50">
+      <div className="relative px-6 py-8 border-b border-emerald-500/20">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
+        <div className="relative flex items-center gap-3 mb-2">
+          <div className="p-3 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl shadow-lg shadow-emerald-500/50">
             <TrendingUp className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold text-white">
               Analytics
             </h1>
-            <p className="text-sm text-gray-400">Track your environmental impact</p>
+            <p className="text-sm text-emerald-200/60">Track your environmental impact</p>
           </div>
         </div>
       </div>
@@ -78,15 +80,15 @@ export default function Analytics() {
       <div className="px-6 mt-6 space-y-6">
         {/* Time Range Selector */}
         <Tabs value={timeRange} onValueChange={setTimeRange}>
-          <TabsList className="bg-slate-800 border border-emerald-500/20 w-full">
-            <TabsTrigger value="week" className="flex-1">Week</TabsTrigger>
-            <TabsTrigger value="month" className="flex-1">Month</TabsTrigger>
-            <TabsTrigger value="quarter" className="flex-1">Quarter</TabsTrigger>
+          <TabsList className="bg-[#1e4d3a]/80 border border-emerald-500/30 w-full">
+            <TabsTrigger value="week" className="flex-1 data-[state=active]:bg-emerald-600">Week</TabsTrigger>
+            <TabsTrigger value="month" className="flex-1 data-[state=active]:bg-emerald-600">Month</TabsTrigger>
+            <TabsTrigger value="quarter" className="flex-1 data-[state=active]:bg-emerald-600">Quarter</TabsTrigger>
           </TabsList>
         </Tabs>
 
         {/* Personal Progress */}
-        <Card className="bg-slate-900/95 border-emerald-500/20 p-6">
+        <Card className="bg-[#0f5132]/80 border-emerald-500/30 backdrop-blur-md p-6">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="w-5 h-5 text-emerald-400" />
             <h2 className="text-lg font-semibold text-white">Your Eco Score Progress</h2>

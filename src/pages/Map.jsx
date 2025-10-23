@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -67,23 +68,24 @@ export default function MapPage() {
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="bg-slate-900/95 backdrop-blur-xl border-b border-emerald-500/20 px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent">
-            Eco Map
+      <div className="relative bg-[#0f5132]/95 backdrop-blur-xl border-b border-emerald-500/30 px-6 py-4 z-10">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent" />
+        <div className="relative flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-white">
+            <span className="text-emerald-300">Eco</span> Map
           </h1>
           <div className="flex gap-2">
             <Button
               size="icon"
               variant="outline"
-              className="border-emerald-500/30 hover:bg-emerald-500/20"
+              className="border-emerald-500/30 bg-[#1e4d3a]/50 hover:bg-[#1e4d3a] text-white"
               onClick={() => setShowHazards(!showHazards)}
             >
-              <AlertTriangle className={`w-5 h-5 ${showHazards ? 'text-amber-400' : 'text-gray-500'}`} />
+              <AlertTriangle className={`w-5 h-5 ${showHazards ? 'text-yellow-400' : 'text-gray-500'}`} />
             </Button>
             <Button
               size="icon"
-              className="bg-gradient-to-br from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-500/50"
+              className="bg-gradient-to-br from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
               onClick={() => setShowAddDialog(true)}
             >
               <Plus className="w-5 h-5" />
@@ -92,11 +94,11 @@ export default function MapPage() {
         </div>
 
         <Tabs value={filterType} onValueChange={setFilterType}>
-          <TabsList className="bg-slate-800 border border-emerald-500/20 w-full">
-            <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
-            <TabsTrigger value="park" className="flex-1">Parks</TabsTrigger>
-            <TabsTrigger value="bike_station" className="flex-1">Bikes</TabsTrigger>
-            <TabsTrigger value="recycling_center" className="flex-1">Recycle</TabsTrigger>
+          <TabsList className="bg-[#1e4d3a]/80 border border-emerald-500/30 w-full">
+            <TabsTrigger value="all" className="flex-1 data-[state=active]:bg-emerald-600">All</TabsTrigger>
+            <TabsTrigger value="park" className="flex-1 data-[state=active]:bg-emerald-600">Parks</TabsTrigger>
+            <TabsTrigger value="bike_station" className="flex-1 data-[state=active]:bg-emerald-600">Bikes</TabsTrigger>
+            <TabsTrigger value="recycling_center" className="flex-1 data-[state=active]:bg-emerald-600">Recycle</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>

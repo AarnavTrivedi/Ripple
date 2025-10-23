@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,14 +36,15 @@ export default function Scanner() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <div className="bg-slate-900/95 backdrop-blur-xl border-b border-emerald-500/20 px-6 py-6">
-        <div className="flex items-center gap-3 mb-4">
+      <div className="relative bg-[#0f5132]/95 backdrop-blur-xl border-b border-emerald-500/30 px-6 py-6 z-10">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-transparent" />
+        <div className="relative flex items-center gap-3 mb-4">
           <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl shadow-lg shadow-purple-500/50">
             <Camera className="w-6 h-6 text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">AR Scanner</h1>
-            <p className="text-sm text-gray-400">Discover eco actions & hazards</p>
+            <p className="text-sm text-emerald-200/60">Discover eco actions & hazards</p>
           </div>
         </div>
 
@@ -53,7 +55,7 @@ export default function Scanner() {
             className={`${
               scanMode === 'green'
                 ? 'bg-gradient-to-br from-emerald-500 to-green-600'
-                : 'bg-slate-800 text-gray-400'
+                : 'bg-[#1e4d3a]/60 text-gray-300'
             }`}
           >
             <Leaf className="w-4 h-4 mr-2" />
@@ -64,7 +66,7 @@ export default function Scanner() {
             className={`${
               scanMode === 'hazard'
                 ? 'bg-gradient-to-br from-amber-500 to-orange-600'
-                : 'bg-slate-800 text-gray-400'
+                : 'bg-[#1e4d3a]/60 text-gray-300'
             }`}
           >
             <AlertTriangle className="w-4 h-4 mr-2" />

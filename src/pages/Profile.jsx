@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -49,13 +50,14 @@ export default function Profile() {
   return (
     <div className="min-h-screen pb-8">
       {/* Header */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-purple-900/30 px-6 py-12">
+      <div className="relative px-6 py-12 border-b border-emerald-500/20">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-purple-500/10" />
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="flex flex-col items-center"
+          className="relative flex flex-col items-center"
         >
-          <div className="w-24 h-24 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-500/50 mb-4">
+          <div className="w-24 h-24 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-500/50 mb-4 border-4 border-[#0f5132]">
             <span className="text-4xl font-bold text-white">
               {currentUser?.full_name?.[0] || 'E'}
             </span>
@@ -63,21 +65,21 @@ export default function Profile() {
           <h1 className="text-2xl font-bold text-white mb-1">
             {currentUser?.full_name || 'Eco Warrior'}
           </h1>
-          <p className="text-sm text-gray-400">{currentUser?.email}</p>
+          <p className="text-sm text-emerald-200/60">{currentUser?.email}</p>
           
           {/* Eco Points */}
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="mt-6 px-6 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-full"
+            className="mt-6 px-6 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-full backdrop-blur-md"
           >
             <div className="flex items-center gap-2">
               <Award className="w-5 h-5 text-amber-400" />
               <span className="text-lg font-bold text-amber-400">
                 {currentUser?.eco_points || 0}
               </span>
-              <span className="text-sm text-gray-300">Eco Points</span>
+              <span className="text-sm text-white">Eco Points</span>
             </div>
           </motion.div>
         </motion.div>
@@ -86,7 +88,7 @@ export default function Profile() {
       {/* Content */}
       <div className="px-6 mt-6 space-y-4">
         {/* Newsletter Section */}
-        <Card className="bg-slate-900/95 border-emerald-500/20 p-6">
+        <Card className="bg-[#0f5132]/80 border-emerald-500/30 backdrop-blur-md p-6">
           <div className="flex items-center gap-3 mb-4">
             <Mail className="w-5 h-5 text-emerald-400" />
             <h2 className="text-lg font-semibold text-white">Newsletter Subscription</h2>
