@@ -93,100 +93,146 @@ export default function Layout({ children, currentPageName }) {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-16 bg-[#0f5132]/95 backdrop-blur-xl border-t border-emerald-500/30 z-50">
-        <div className="max-w-md mx-auto px-6 py-4">
-          <div className="flex items-center justify-around relative">
-            {navItems.slice(0, 2).map((item) => {
-              const isActive = location.pathname === item.url;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.url}
-                  className="relative flex flex-col items-center gap-1 transition-all duration-300"
-                >
-                  {isActive && (
-                    <motion.div
-                      layoutId="navIndicator"
-                      className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-10 bg-emerald-500/20 rounded-full blur-xl"
-                    />
-                  )}
-                  <div className={`relative p-2.5 rounded-xl transition-all duration-300 ${
-                    isActive 
-                      ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
-                      : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
-                  }`}>
-                    <item.icon className="w-5 h-5 text-white" />
-                  </div>
-                  <span className={`text-xs font-medium transition-colors ${
-                    isActive ? 'text-emerald-300' : 'text-gray-400'
-                  }`}>
-                    {item.name}
-                  </span>
-                </Link>
-              );
-            })}
-
-            {/* Large Central Action Button */}
-            <motion.div
-              animate={{
-                scale: [1, 1.05, 1],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="absolute left-1/2 -translate-x-1/2 -top-8"
+      <nav className="fixed bottom-0 left-0 right-16 bg-[#0f5132]/95 backdrop-blur-xl border-t border-emerald-500/30 z-50 shadow-2xl shadow-black/50">
+        <div className="max-w-md mx-auto px-4 py-3">
+          <div className="flex items-center justify-between relative">
+            {/* Home */}
+            <Link
+              to={navItems[0].url}
+              className="relative flex flex-col items-center gap-1 transition-all duration-300 flex-1"
             >
-              <Link to={createPageUrl("Scanner")}>
-                <div className="relative">
-                  <motion.div
-                    className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full blur-xl opacity-60"
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.4, 0.7, 0.4],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                    }}
-                  />
-                  <div className="relative w-20 h-20 bg-gradient-to-br from-emerald-500 via-emerald-600 to-[#0f5132] rounded-full flex items-center justify-center shadow-2xl shadow-emerald-500/50 border-4 border-[#0f5132]">
-                    <Plus className="w-8 h-8 text-white" />
-                  </div>
-                </div>
-              </Link>
-            </motion.div>
+              {location.pathname === navItems[0].url && (
+                <motion.div
+                  layoutId="navIndicator"
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-10 bg-emerald-500/20 rounded-full blur-xl"
+                />
+              )}
+              <div className={`relative p-2.5 rounded-xl transition-all duration-300 ${
+                location.pathname === navItems[0].url
+                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
+                  : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
+              }`}>
+                <navItems[0].icon className="w-5 h-5 text-white" />
+              </div>
+              <span className={`text-[10px] font-medium transition-colors ${
+                location.pathname === navItems[0].url ? 'text-emerald-300' : 'text-gray-400'
+              }`}>
+                {navItems[0].name}
+              </span>
+            </Link>
 
-            {navItems.slice(2, 4).map((item) => {
-              const isActive = location.pathname === item.url;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.url}
-                  className="relative flex flex-col items-center gap-1 transition-all duration-300"
-                >
-                  {isActive && (
+            {/* Map */}
+            <Link
+              to={navItems[1].url}
+              className="relative flex flex-col items-center gap-1 transition-all duration-300 flex-1"
+            >
+              {location.pathname === navItems[1].url && (
+                <motion.div
+                  layoutId="navIndicator2"
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-10 bg-emerald-500/20 rounded-full blur-xl"
+                />
+              )}
+              <div className={`relative p-2.5 rounded-xl transition-all duration-300 ${
+                location.pathname === navItems[1].url
+                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
+                  : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
+              }`}>
+                <navItems[1].icon className="w-5 h-5 text-white" />
+              </div>
+              <span className={`text-[10px] font-medium transition-colors ${
+                location.pathname === navItems[1].url ? 'text-emerald-300' : 'text-gray-400'
+              }`}>
+                {navItems[1].name}
+              </span>
+            </Link>
+
+            {/* Large Central Scanner Button */}
+            <div className="flex-1 flex justify-center">
+              <motion.div
+                animate={{
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="absolute -top-8"
+              >
+                <Link to={navItems[3].url}>
+                  <div className="relative">
                     <motion.div
-                      layoutId="navIndicator2"
-                      className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-10 bg-emerald-500/20 rounded-full blur-xl"
+                      className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full blur-xl opacity-60"
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.4, 0.7, 0.4],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                      }}
                     />
-                  )}
-                  <div className={`relative p-2.5 rounded-xl transition-all duration-300 ${
-                    isActive 
-                      ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
-                      : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
-                  }`}>
-                    <item.icon className="w-5 h-5 text-white" />
+                    <div className={`relative w-20 h-20 rounded-full flex items-center justify-center shadow-2xl border-4 border-[#0f5132] ${
+                      location.pathname === navItems[3].url
+                        ? 'bg-gradient-to-br from-purple-500 via-purple-600 to-pink-600 shadow-purple-500/50'
+                        : 'bg-gradient-to-br from-emerald-500 via-emerald-600 to-[#0f5132] shadow-emerald-500/50'
+                    }`}>
+                      <Plus className="w-8 h-8 text-white" />
+                    </div>
                   </div>
-                  <span className={`text-xs font-medium transition-colors ${
-                    isActive ? 'text-emerald-300' : 'text-gray-400'
-                  }`}>
-                    {item.name}
-                  </span>
                 </Link>
-              );
-            })}
+              </motion.div>
+            </div>
+
+            {/* Analytics */}
+            <Link
+              to={navItems[2].url}
+              className="relative flex flex-col items-center gap-1 transition-all duration-300 flex-1"
+            >
+              {location.pathname === navItems[2].url && (
+                <motion.div
+                  layoutId="navIndicator3"
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-10 bg-emerald-500/20 rounded-full blur-xl"
+                />
+              )}
+              <div className={`relative p-2.5 rounded-xl transition-all duration-300 ${
+                location.pathname === navItems[2].url
+                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
+                  : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
+              }`}>
+                <navItems[2].icon className="w-5 h-5 text-white" />
+              </div>
+              <span className={`text-[10px] font-medium transition-colors ${
+                location.pathname === navItems[2].url ? 'text-emerald-300' : 'text-gray-400'
+              }`}>
+                {navItems[2].name}
+              </span>
+            </Link>
+
+            {/* Profile */}
+            <Link
+              to={navItems[4].url}
+              className="relative flex flex-col items-center gap-1 transition-all duration-300 flex-1"
+            >
+              {location.pathname === navItems[4].url && (
+                <motion.div
+                  layoutId="navIndicator4"
+                  className="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-10 bg-emerald-500/20 rounded-full blur-xl"
+                />
+              )}
+              <div className={`relative p-2.5 rounded-xl transition-all duration-300 ${
+                location.pathname === navItems[4].url
+                  ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
+                  : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
+              }`}>
+                <navItems[4].icon className="w-5 h-5 text-white" />
+              </div>
+              <span className={`text-[10px] font-medium transition-colors ${
+                location.pathname === navItems[4].url ? 'text-emerald-300' : 'text-gray-400'
+              }`}>
+                {navItems[4].name}
+              </span>
+            </Link>
           </div>
         </div>
       </nav>
