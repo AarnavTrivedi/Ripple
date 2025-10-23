@@ -1,0 +1,53 @@
+{
+  "name": "GreenAction",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the green action"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Latitude coordinate"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Longitude coordinate"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": [
+        "plant_tree",
+        "cleanup_event",
+        "workshop",
+        "volunteer",
+        "donation_drive",
+        "repair_cafe"
+      ],
+      "description": "Type of green action"
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the action"
+    },
+    "points_reward": {
+      "type": "number",
+      "description": "Eco points earned for completing"
+    },
+    "completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether user completed this action"
+    }
+  },
+  "required": [
+    "title",
+    "action_type",
+    "date"
+  ]
+}

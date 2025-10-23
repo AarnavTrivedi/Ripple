@@ -1,0 +1,46 @@
+{
+  "name": "HazardZone",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the hazard zone"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Latitude coordinate"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Longitude coordinate"
+    },
+    "hazard_level": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Hazard level (0-100)"
+    },
+    "hazard_type": {
+      "type": "string",
+      "enum": [
+        "air_quality",
+        "noise_pollution",
+        "water_contamination",
+        "industrial",
+        "traffic"
+      ],
+      "description": "Type of environmental hazard"
+    },
+    "description": {
+      "type": "string",
+      "description": "Details about the hazard"
+    }
+  },
+  "required": [
+    "name",
+    "latitude",
+    "longitude",
+    "hazard_level",
+    "hazard_type"
+  ]
+}

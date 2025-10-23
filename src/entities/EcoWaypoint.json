@@ -1,0 +1,52 @@
+{
+  "name": "EcoWaypoint",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the eco-friendly location"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the waypoint"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Latitude coordinate"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Longitude coordinate"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "recycling_center",
+        "charging_station",
+        "bike_station",
+        "park",
+        "community_garden",
+        "water_refill",
+        "eco_store"
+      ],
+      "description": "Type of eco waypoint"
+    },
+    "eco_rating": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Eco-friendliness rating"
+    },
+    "is_user_created": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether this was added by a user"
+    }
+  },
+  "required": [
+    "name",
+    "latitude",
+    "longitude",
+    "type"
+  ]
+}

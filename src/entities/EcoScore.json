@@ -1,0 +1,49 @@
+{
+  "name": "EcoScore",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the score"
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Daily eco score (0-100)"
+    },
+    "walking_minutes": {
+      "type": "number",
+      "description": "Minutes spent walking"
+    },
+    "cycling_minutes": {
+      "type": "number",
+      "description": "Minutes spent cycling"
+    },
+    "public_transport_minutes": {
+      "type": "number",
+      "description": "Minutes spent on public transport"
+    },
+    "driving_minutes": {
+      "type": "number",
+      "description": "Minutes spent driving"
+    },
+    "green_actions_completed": {
+      "type": "number",
+      "description": "Number of green actions completed today"
+    },
+    "carbon_saved_kg": {
+      "type": "number",
+      "description": "Estimated kg of CO2 saved"
+    },
+    "ai_suggestion": {
+      "type": "string",
+      "description": "AI-generated daily suggestion"
+    }
+  },
+  "required": [
+    "date",
+    "score"
+  ]
+}

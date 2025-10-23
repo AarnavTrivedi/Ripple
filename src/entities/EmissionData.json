@@ -1,0 +1,40 @@
+{
+  "name": "EmissionData",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the emission data"
+    },
+    "location": {
+      "type": "string",
+      "description": "County or region name"
+    },
+    "co2_tons": {
+      "type": "number",
+      "description": "CO2 emissions in tons"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "local",
+        "county",
+        "state",
+        "country",
+        "global"
+      ],
+      "description": "Geographic scope of data"
+    },
+    "change_percentage": {
+      "type": "number",
+      "description": "Percentage change from previous period"
+    }
+  },
+  "required": [
+    "date",
+    "location",
+    "co2_tons",
+    "scope"
+  ]
+}

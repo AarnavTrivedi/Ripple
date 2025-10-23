@@ -1,0 +1,44 @@
+{
+  "name": "Newsletter",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Newsletter headline"
+    },
+    "content": {
+      "type": "string",
+      "description": "Newsletter content"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "local_events",
+        "policy_updates",
+        "climate_news",
+        "tips",
+        "success_stories"
+      ],
+      "description": "Newsletter category"
+    },
+    "location": {
+      "type": "string",
+      "description": "Relevant location"
+    },
+    "publish_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Publication date"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Featured image URL"
+    }
+  },
+  "required": [
+    "title",
+    "content",
+    "category",
+    "publish_date"
+  ]
+}

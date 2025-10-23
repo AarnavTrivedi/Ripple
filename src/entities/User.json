@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "properties": {
+    "eco_points": {
+      "type": "number",
+      "default": 0,
+      "description": "Total eco points earned"
+    },
+    "newsletter_subscribed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Newsletter subscription status"
+    },
+    "preferred_hazard_icons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "User's preferred hazard icon types"
+    },
+    "home_latitude": {
+      "type": "number",
+      "description": "User's home latitude"
+    },
+    "home_longitude": {
+      "type": "number",
+      "description": "User's home longitude"
+    }
+  },
+  "name": "User"
+}
