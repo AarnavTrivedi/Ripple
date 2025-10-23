@@ -112,12 +112,12 @@ export default function Layout({ children, currentPageName }) {
                   ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
                   : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
               }`}>
-                <navItems[0].icon className="w-5 h-5 text-white" />
+                <Home className="w-5 h-5 text-white" />
               </div>
               <span className={`text-[10px] font-medium transition-colors ${
                 location.pathname === navItems[0].url ? 'text-emerald-300' : 'text-gray-400'
               }`}>
-                {navItems[0].name}
+                Home
               </span>
             </Link>
 
@@ -137,12 +137,12 @@ export default function Layout({ children, currentPageName }) {
                   ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
                   : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
               }`}>
-                <navItems[1].icon className="w-5 h-5 text-white" />
+                <Map className="w-5 h-5 text-white" />
               </div>
               <span className={`text-[10px] font-medium transition-colors ${
                 location.pathname === navItems[1].url ? 'text-emerald-300' : 'text-gray-400'
               }`}>
-                {navItems[1].name}
+                Map
               </span>
             </Link>
 
@@ -177,7 +177,7 @@ export default function Layout({ children, currentPageName }) {
                         ? 'bg-gradient-to-br from-purple-500 via-purple-600 to-pink-600 shadow-purple-500/50'
                         : 'bg-gradient-to-br from-emerald-500 via-emerald-600 to-[#0f5132] shadow-emerald-500/50'
                     }`}>
-                      <Plus className="w-8 h-8 text-white" />
+                      <Camera className="w-8 h-8 text-white" />
                     </div>
                   </div>
                 </Link>
@@ -200,12 +200,12 @@ export default function Layout({ children, currentPageName }) {
                   ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
                   : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
               }`}>
-                <navItems[2].icon className="w-5 h-5 text-white" />
+                <TrendingUp className="w-5 h-5 text-white" />
               </div>
               <span className={`text-[10px] font-medium transition-colors ${
                 location.pathname === navItems[2].url ? 'text-emerald-300' : 'text-gray-400'
               }`}>
-                {navItems[2].name}
+                Stats
               </span>
             </Link>
 
@@ -225,12 +225,12 @@ export default function Layout({ children, currentPageName }) {
                   ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/50' 
                   : 'bg-[#1e4d3a]/50 hover:bg-[#1e4d3a]'
               }`}>
-                <navItems[4].icon className="w-5 h-5 text-white" />
+                <User className="w-5 h-5 text-white" />
               </div>
               <span className={`text-[10px] font-medium transition-colors ${
                 location.pathname === navItems[4].url ? 'text-emerald-300' : 'text-gray-400'
               }`}>
-                {navItems[4].name}
+                Profile
               </span>
             </Link>
           </div>
