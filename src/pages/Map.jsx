@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Filter, Plus, Navigation, AlertTriangle } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -14,7 +13,7 @@ import AddWaypointDialog from "../components/map/AddWaypointDialog";
 import WaypointDetails from "../components/map/WaypointDetails";
 
 export default function MapPage() {
-  const [center] = useState([37.7749, -122.4194]); // San Francisco default
+  const [center] = useState([37.5407, -77.4360]); // Richmond, Virginia
   const [selectedWaypoint, setSelectedWaypoint] = useState(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [filterType, setFilterType] = useState("all");
@@ -60,15 +59,15 @@ export default function MapPage() {
   };
 
   const getHazardColor = (level) => {
-    if (level < 40) return '#fbbf24'; // yellow
-    if (level < 60) return '#fb923c'; // orange
-    return '#ef4444'; // red
+    if (level < 40) return '#fbbf24';
+    if (level < 60) return '#fb923c';
+    return '#ef4444';
   };
 
   return (
     <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="relative bg-[#0f5132]/95 backdrop-blur-xl border-b border-emerald-500/30 px-6 py-4 z-10">
+      <div className="relative bg-[#0f5132]/95 backdrop-blur-xl border-b border-emerald-500/30 px-6 py-4 z-[1001]">
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent" />
         <div className="relative flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-white">
@@ -107,7 +106,7 @@ export default function MapPage() {
       <div className="flex-1 relative">
         <MapContainer
           center={center}
-          zoom={13}
+          zoom={12}
           style={{ height: '100%', width: '100%' }}
           className="z-0"
         >
@@ -116,7 +115,6 @@ export default function MapPage() {
             attribution='&copy; OpenStreetMap contributors'
           />
 
-          {/* Waypoints */}
           {filteredWaypoints.map((waypoint) => (
             <Marker
               key={waypoint.id}
@@ -135,7 +133,6 @@ export default function MapPage() {
             </Marker>
           ))}
 
-          {/* Hazard Zones */}
           {showHazards && hazards.map((hazard) => (
             <Circle
               key={hazard.id}
@@ -161,16 +158,16 @@ export default function MapPage() {
         </MapContainer>
 
         {/* Floating Stats */}
-        <Card className="absolute top-4 left-4 right-4 bg-slate-900/95 backdrop-blur-xl border-emerald-500/20 z-[1000]">
+        <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur-xl border-emerald-500/30 z-[1000]">
           <div className="p-4">
             <div className="flex items-center justify-between text-sm">
               <div>
-                <p className="text-gray-400">Eco Spots</p>
+                <p className="text-emerald-200/60">Eco Spots</p>
                 <p className="text-xl font-bold text-emerald-400">{filteredWaypoints.length}</p>
               </div>
               {showHazards && (
                 <div>
-                  <p className="text-gray-400">Hazard Zones</p>
+                  <p className="text-emerald-200/60">Hazard Zones</p>
                   <p className="text-xl font-bold text-amber-400">{hazards.length}</p>
                 </div>
               )}
@@ -179,7 +176,6 @@ export default function MapPage() {
         </Card>
       </div>
 
-      {/* Selected Waypoint Details */}
       {selectedWaypoint && (
         <WaypointDetails
           waypoint={selectedWaypoint}
@@ -187,7 +183,6 @@ export default function MapPage() {
         />
       )}
 
-      {/* Add Waypoint Dialog */}
       <AddWaypointDialog
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}

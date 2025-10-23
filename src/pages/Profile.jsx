@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -97,10 +96,10 @@ export default function Profile() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <Label htmlFor="newsletter" className="text-white font-medium">
-                Local Environmental Updates
+                Virginia Environmental Updates
               </Label>
-              <p className="text-sm text-gray-400 mt-1">
-                Receive weekly updates about local environmental news
+              <p className="text-sm text-emerald-200/60 mt-1">
+                Receive weekly updates about environmental news in Virginia
               </p>
             </div>
             <Switch
@@ -112,20 +111,20 @@ export default function Profile() {
 
           {currentUser?.newsletter_subscribed && newsletters.length > 0 && (
             <div className="mt-6 space-y-3">
-              <h3 className="text-sm font-semibold text-gray-300">Recent Updates</h3>
+              <h3 className="text-sm font-semibold text-emerald-200/80">Recent Updates</h3>
               {newsletters.map((newsletter, index) => (
                 <motion.div
                   key={newsletter.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="p-4 bg-slate-800 rounded-lg border border-slate-700"
+                  className="p-4 bg-[#1e4d3a]/60 rounded-lg border border-emerald-500/20"
                 >
                   <div className="flex items-start gap-3">
                     <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-1" />
                     <div>
                       <h4 className="text-sm font-medium text-white">{newsletter.title}</h4>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-xs text-emerald-200/60 mt-1">
                         {newsletter.location} • {newsletter.category.replace(/_/g, ' ')}
                       </p>
                     </div>
@@ -137,7 +136,7 @@ export default function Profile() {
         </Card>
 
         {/* Settings */}
-        <Card className="bg-slate-900/95 border-slate-700 p-6">
+        <Card className="bg-[#0f5132]/80 border-emerald-500/30 backdrop-blur-md p-6">
           <div className="flex items-center gap-3 mb-4">
             <Settings className="w-5 h-5 text-blue-400" />
             <h2 className="text-lg font-semibold text-white">Settings</h2>
@@ -146,7 +145,7 @@ export default function Profile() {
           <div className="space-y-4">
             <Button
               variant="outline"
-              className="w-full justify-start border-slate-700 text-gray-300 hover:bg-slate-800"
+              className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
             >
               <Bell className="w-4 h-4 mr-3" />
               Notification Preferences
@@ -154,7 +153,7 @@ export default function Profile() {
             
             <Button
               variant="outline"
-              className="w-full justify-start border-slate-700 text-gray-300 hover:bg-slate-800"
+              className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
             >
               <User className="w-4 h-4 mr-3" />
               Edit Profile

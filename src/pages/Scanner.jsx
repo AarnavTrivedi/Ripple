@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,22 +6,21 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function Scanner() {
   const [isScanning, setIsScanning] = useState(false);
-  const [scanMode, setScanMode] = useState('green'); // 'green' or 'hazard'
+  const [scanMode, setScanMode] = useState('green');
   const [detectedItems, setDetectedItems] = useState([]);
 
   const startScan = () => {
     setIsScanning(true);
-    // Simulate AR detection
     setTimeout(() => {
       if (scanMode === 'green') {
         setDetectedItems([
-          { id: 1, type: 'green', name: 'Community Garden', distance: '120m', points: 50 },
-          { id: 2, type: 'green', name: 'Tree Planting Event', distance: '350m', points: 100 },
+          { id: 1, type: 'green', name: 'Community Garden', distance: '0.3 mi', points: 50 },
+          { id: 2, type: 'green', name: 'Tree Planting Event', distance: '1.2 mi', points: 100 },
         ]);
       } else {
         setDetectedItems([
-          { id: 1, type: 'hazard', name: 'High Traffic Area', distance: '80m', level: 65 },
-          { id: 2, type: 'hazard', name: 'Industrial Zone', distance: '220m', level: 45 },
+          { id: 1, type: 'hazard', name: 'High Traffic Area', distance: '0.2 mi', level: 65 },
+          { id: 2, type: 'hazard', name: 'Industrial Zone', distance: '0.8 mi', level: 45 },
         ]);
       }
     }, 1500);
@@ -76,11 +74,9 @@ export default function Scanner() {
       </div>
 
       {/* AR View */}
-      <div className="flex-1 relative bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950">
-        {/* Camera simulation */}
+      <div className="flex-1 relative bg-gradient-to-br from-[#0a3d29] via-[#0f5132] to-[#1e4d3a]">
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="relative w-full h-full">
-            {/* Scanning grid overlay */}
             {isScanning && (
               <motion.div
                 initial={{ opacity: 0 }}
@@ -95,7 +91,6 @@ export default function Scanner() {
               />
             )}
 
-            {/* Detected Items */}
             <AnimatePresence>
               {detectedItems.map((item, index) => (
                 <motion.div
@@ -137,7 +132,6 @@ export default function Scanner() {
               ))}
             </AnimatePresence>
 
-            {/* Center crosshair */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className={`w-16 h-16 border-2 rounded-full ${
                 scanMode === 'green' ? 'border-emerald-400' : 'border-amber-400'
@@ -148,7 +142,6 @@ export default function Scanner() {
           </div>
         </div>
 
-        {/* Scan Button */}
         <div className="absolute bottom-8 left-0 right-0 flex justify-center">
           <Button
             size="lg"
@@ -169,17 +162,16 @@ export default function Scanner() {
           </Button>
         </div>
 
-        {/* Info Card */}
-        <Card className="absolute top-4 left-4 right-4 bg-slate-900/95 backdrop-blur-xl border-emerald-500/20 p-4">
+        <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur-xl border-emerald-500/30 p-4">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-white font-medium mb-1">
                 {scanMode === 'green' ? 'Green Action Mode' : 'Hazard Detection Mode'}
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-emerald-200/60">
                 {scanMode === 'green'
-                  ? 'Point your camera to discover eco-friendly activities nearby'
+                  ? 'Point your camera to discover eco-friendly activities nearby in Virginia'
                   : 'Scan your surroundings to identify environmental hazard zones'}
               </p>
             </div>

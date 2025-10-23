@@ -19,8 +19,8 @@ export default function AddWaypointDialog({ open, onClose }) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    latitude: 37.7749,
-    longitude: -122.4194,
+    latitude: 37.5407,
+    longitude: -77.4360,
     type: 'park',
     eco_rating: 80,
     is_user_created: true
@@ -34,8 +34,8 @@ export default function AddWaypointDialog({ open, onClose }) {
       setFormData({
         name: '',
         description: '',
-        latitude: 37.7749,
-        longitude: -122.4194,
+        latitude: 37.5407,
+        longitude: -77.4360,
         type: 'park',
         eco_rating: 80,
         is_user_created: true
@@ -50,7 +50,7 @@ export default function AddWaypointDialog({ open, onClose }) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-slate-900 border-emerald-500/30 text-white">
+      <DialogContent className="bg-[#0f5132] border-emerald-500/30 text-white">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <MapPin className="w-5 h-5 text-emerald-400" />
@@ -60,34 +60,34 @@ export default function AddWaypointDialog({ open, onClose }) {
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div>
-            <Label htmlFor="name">Location Name</Label>
+            <Label htmlFor="name" className="text-white">Location Name</Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="bg-slate-800 border-slate-700 text-white"
+              className="bg-[#1e4d3a] border-emerald-500/30 text-white"
               required
             />
           </div>
 
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description" className="text-white">Description</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
-              className="bg-slate-800 border-slate-700 text-white"
+              className="bg-[#1e4d3a] border-emerald-500/30 text-white"
               rows={3}
             />
           </div>
 
           <div>
-            <Label htmlFor="type">Type</Label>
+            <Label htmlFor="type" className="text-white">Type</Label>
             <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
-              <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+              <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700 text-white">
+              <SelectContent className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                 <SelectItem value="park">Park</SelectItem>
                 <SelectItem value="recycling_center">Recycling Center</SelectItem>
                 <SelectItem value="charging_station">Charging Station</SelectItem>
@@ -101,26 +101,26 @@ export default function AddWaypointDialog({ open, onClose }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="latitude">Latitude</Label>
+              <Label htmlFor="latitude" className="text-white">Latitude</Label>
               <Input
                 id="latitude"
                 type="number"
                 step="any"
                 value={formData.latitude}
                 onChange={(e) => setFormData({...formData, latitude: parseFloat(e.target.value)})}
-                className="bg-slate-800 border-slate-700 text-white"
+                className="bg-[#1e4d3a] border-emerald-500/30 text-white"
                 required
               />
             </div>
             <div>
-              <Label htmlFor="longitude">Longitude</Label>
+              <Label htmlFor="longitude" className="text-white">Longitude</Label>
               <Input
                 id="longitude"
                 type="number"
                 step="any"
                 value={formData.longitude}
                 onChange={(e) => setFormData({...formData, longitude: parseFloat(e.target.value)})}
-                className="bg-slate-800 border-slate-700 text-white"
+                className="bg-[#1e4d3a] border-emerald-500/30 text-white"
                 required
               />
             </div>
