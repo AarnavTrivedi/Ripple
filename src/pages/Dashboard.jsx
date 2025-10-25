@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Leaf, Circle, ChevronRight, Plus, Sparkles, Loader2, AlertCircle } from "lucide-react";
-import { format, differenceInHours } from "date-fns";
+import { format } from "date-fns";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -25,7 +24,6 @@ export default function Dashboard() {
     };
     fetchUser();
 
-    // Real-time location tracking
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -35,7 +33,6 @@ export default function Dashboard() {
           };
           setUserLocation(coords);
           
-          // Get actual location name from coordinates
           try {
             const response = await fetch(
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}`
@@ -44,13 +41,11 @@ export default function Dashboard() {
             setLocationName(data.address.city || data.address.county || data.address.state || "Virginia");
           } catch (error) {
             console.error("Error getting location name:", error);
-            // Fallback to default location name if error occurs is handled by initial state
           }
         },
         (error) => {
           console.error("Location error:", error);
-          setUserLocation({ latitude: 37.5407, longitude: -77.4360 }); // Default to Richmond, VA
-          // locationName will remain "Virginia" from initial state
+          setUserLocation({ latitude: 37.5407, longitude: -77.4360 });
         }
       );
     }
@@ -83,128 +78,90 @@ export default function Dashboard() {
     initialData: [],
   });
 
-  const { data: newsletters, isLoading: newsLoading } = useQuery({
+  const { data: newsletters } = useQuery({
     queryKey: ['newsletters'],
     queryFn: () => base44.entities.Newsletter.list('-publish_date', 5),
     initialData: [],
   });
-
-  const generateNewsMutation = useMutation({
-    mutationFn: async () => {
-      setNewsError(null); // Clear any previous error before starting a new mutation
-      
-      try {
-        console.log("Fetching environmental news for:", locationName);
-        
-        // Fetch REAL environmental news from the internet
-        const newsData = await base44.integrations.Core.InvokeLLM({
-          prompt: `Search Google News and the internet for the 3 most recent environmental news articles about ${locationName}, Virginia. Find REAL news from the last 7 days about environmental topics like:
-- Climate action and sustainability
-- Local environmental initiatives
-- Pollution or air quality
-- Wildlife conservation
-- Green energy projects
-
-Return actual news headlines and summaries from real sources.`,
-          add_context_from_internet: true,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              articles: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    title: { type: "string" },
-                    content: { type: "string" },
-                    location: { type: "string" }
-                  }
-                }
-              }
-            }
-          }
-        });
-
-        console.log("News fetched:", newsData);
-
-        if (!newsData || !newsData.articles || newsData.articles.length === 0) {
-          throw new Error("No news articles returned from the search. Please try again.");
-        }
-
-        // Delete old news first
-        const oldNews = await base44.entities.Newsletter.list();
-        for (const news of oldNews) {
-          await base44.entities.Newsletter.delete(news.id);
-        }
-
-        // Create new real news entries
-        const today = format(new Date(), 'yyyy-MM-dd');
-        for (const article of newsData.articles) {
-          await base44.entities.Newsletter.create({
-            title: article.title,
-            content: article.content,
-            location: article.location || locationName, // Use article's location, or fallback to general location
-            category: "climate_news",
-            publish_date: today, // Use today's date for consistency
-            image_url: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800"
-          });
-        }
-
-        console.log("News saved to database");
-        return newsData;
-      } catch (error) {
-        console.error("Error fetching news:", error);
-        setNewsError(error.message || "Failed to fetch news. Please try again.");
-        throw error; // Re-throw to be caught by onError callback
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['newsletters'] });
-    },
-    onError: (error) => {
-      console.error("Mutation error:", error);
-      setNewsError(error.message || "An unexpected error occurred during news generation.");
-    }
-  });
-
-  // Auto-fetch news if older than 24 hours or if no news exists
-  useEffect(() => {
-    // Only proceed if locationName is determined (not the initial default "Virginia" if it's going to change)
-    // and if news is not currently loading or being generated.
-    if (newsLoading || generateNewsMutation.isPending) return; // Prevent re-triggering while loading/pending
-
-    const checkNewsAge = async () => {
-      if (newsletters.length === 0) {
-        console.log("No news found, attempting to fetch...");
-        generateNewsMutation.mutate();
-      } else {
-        // Check if news is older than 24 hours
-        const latestNews = newsletters[0];
-        const newsDate = new Date(latestNews.publish_date);
-        const hoursSinceUpdate = differenceInHours(new Date(), newsDate);
-        
-        console.log(`Latest news is ${hoursSinceUpdate} hours old.`);
-        
-        if (hoursSinceUpdate >= 24) {
-          console.log("News is stale (older than 24 hours), fetching fresh news...");
-          generateNewsMutation.mutate();
-        }
-      }
-    };
-
-    // Only auto-fetch if we have a more specific location than the default "Virginia"
-    // to avoid unnecessary LLM calls until location is resolved.
-    if (locationName && locationName !== "Virginia") {
-      checkNewsAge();
-    }
-  }, [newsletters.length, locationName, newsLoading, generateNewsMutation.mutate, generateNewsMutation.isPending]);
-
 
   const createScoreMutation = useMutation({
     mutationFn: (data) => base44.entities.EcoScore.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todayScore'] });
     },
+  });
+
+  const generateNewsMutation = useMutation({
+    mutationFn: async () => {
+      setNewsError(null);
+      
+      console.log("Starting news fetch for:", locationName);
+      
+      // Fetch REAL environmental news from the internet
+      const newsData = await base44.integrations.Core.InvokeLLM({
+        prompt: `Search the internet for 3 recent environmental news articles about ${locationName}, Virginia. Find real news from the last week about:
+- Climate action
+- Environmental initiatives
+- Pollution or air quality
+- Wildlife conservation
+- Green energy
+
+Return real headlines and summaries.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            articles: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  content: { type: "string" },
+                  location: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      console.log("News data received:", newsData);
+
+      if (!newsData || !newsData.articles || newsData.articles.length === 0) {
+        throw new Error("No articles returned");
+      }
+
+      // Delete old news
+      const oldNews = await base44.entities.Newsletter.list();
+      for (const news of oldNews) {
+        await base44.entities.Newsletter.delete(news.id);
+      }
+
+      // Create new news entries
+      const today = format(new Date(), 'yyyy-MM-dd');
+      for (const article of newsData.articles) {
+        await base44.entities.Newsletter.create({
+          title: article.title,
+          content: article.content,
+          location: article.location || locationName,
+          category: "climate_news",
+          publish_date: today,
+          image_url: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800"
+        });
+      }
+
+      console.log("News saved successfully");
+      return newsData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['newsletters'] });
+      setNewsError(null);
+    },
+    onError: (error) => {
+      console.error("News fetch error:", error);
+      setNewsError(error.message || "Failed to fetch news");
+    }
   });
 
   const handleStartTracking = () => {
@@ -222,12 +179,13 @@ Return actual news headlines and summaries from real sources.`,
   };
 
   const handleGenerateNews = () => {
-    setNewsError(null); // Clear error on manual refresh
+    setNewsError(null);
+    console.log("Manual news fetch triggered");
     generateNewsMutation.mutate();
   };
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 3959; // Earth radius in miles
+    const R = 3959;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -241,15 +199,12 @@ Return actual news headlines and summaries from real sources.`,
 
   return (
     <div className="min-h-screen">
-      {/* Top Section with Score Circle */}
+      {/* Score Circle */}
       <div className="px-6 pt-12 pb-6">
-        {/* Circular Score Display */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative w-48 h-48 mb-6">
-            {/* Glow effect */}
             <div className="absolute inset-0 bg-emerald-400/10 rounded-full blur-2xl animate-pulse" />
             
-            {/* SVG Circle */}
             <svg className="absolute inset-0 w-full h-full -rotate-90">
               <circle
                 cx="96"
@@ -273,7 +228,6 @@ Return actual news headlines and summaries from real sources.`,
               />
             </svg>
             
-            {/* Score Number */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <div className="text-7xl font-bold text-white mb-1">{score}</div>
               <div className="text-xs text-emerald-200/60 uppercase tracking-widest">
@@ -292,7 +246,6 @@ Return actual news headlines and summaries from real sources.`,
           )}
         </div>
 
-        {/* Header with Location */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <Circle className="w-2 h-2 text-emerald-400 fill-emerald-400 animate-pulse" />
@@ -302,9 +255,7 @@ Return actual news headlines and summaries from real sources.`,
           </div>
           <div className="flex items-center gap-2 text-sm text-emerald-200/50 ml-4">
             <MapPin className="w-3.5 h-3.5" />
-            <span>
-              {locationName}, Virginia
-            </span>
+            <span>{locationName}, Virginia</span>
           </div>
         </div>
       </div>
@@ -373,12 +324,12 @@ Return actual news headlines and summaries from real sources.`,
         )}
       </div>
 
-      {/* Real Environmental News - Auto Updates Daily */}
+      {/* Environmental News */}
       <div className="px-6 pb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold text-white">Local Environmental News</h2>
-            <p className="text-xs text-emerald-200/40 mt-0.5">Updates automatically every 24 hours</p>
+            <p className="text-xs text-emerald-200/40 mt-0.5">Click button to fetch latest news</p>
           </div>
           <Button
             size="sm"
@@ -415,10 +366,10 @@ Return actual news headlines and summaries from real sources.`,
             <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-6 text-center">
               <Loader2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 animate-spin" />
               <p className="text-emerald-200/50 text-sm">
-                Fetching real-time environmental news from {locationName}...
+                Fetching real environmental news from {locationName}...
               </p>
               <p className="text-xs text-emerald-200/30 mt-2">
-                This may take 10-15 seconds
+                This takes 10-20 seconds
               </p>
             </Card>
           ) : newsletters.length > 0 ? (
@@ -441,17 +392,17 @@ Return actual news headlines and summaries from real sources.`,
             <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-6 text-center">
               <Sparkles className="w-8 h-8 text-emerald-400/30 mx-auto mb-2" />
               <p className="text-emerald-200/50 text-sm mb-4">
-                Click "Fetch Latest" to load environmental news
+                Click "Fetch Latest" to load real environmental news
               </p>
               <p className="text-xs text-emerald-200/30">
-                News is fetched from the internet in real-time
+                News is fetched from the internet using AI
               </p>
             </Card>
           )}
         </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* Activity Stats */}
       {todayScore && (
         <div className="px-6 pb-8">
           <h2 className="text-lg font-semibold text-white mb-4">Today's Activity</h2>
