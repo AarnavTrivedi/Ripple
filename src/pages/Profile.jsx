@@ -5,8 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { User, Bell, Settings, Award, LogOut, Mail, CheckCircle } from "lucide-react";
-import { motion } from "framer-motion";
+import { User, Bell, Award, LogOut, Mail } from "lucide-react";
 
 export default function Profile() {
   const queryClient = useQueryClient();
@@ -47,130 +46,100 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen pb-8">
+    <div className="min-h-screen p-6 pt-8">
       {/* Header */}
-      <div className="relative px-6 py-12 border-b border-emerald-500/20">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-purple-500/10" />
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="relative flex flex-col items-center"
-        >
-          <div className="w-24 h-24 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-500/50 mb-4 border-4 border-[#0f5132]">
-            <span className="text-4xl font-bold text-white">
-              {currentUser?.full_name?.[0] || 'E'}
-            </span>
+      <div className="mb-8">
+        <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mb-4">
+          <span className="text-3xl font-bold text-white">
+            {currentUser?.full_name?.[0] || 'E'}
+          </span>
+        </div>
+        <h1 className="text-2xl font-bold text-white mb-1">
+          {currentUser?.full_name || 'Eco Warrior'}
+        </h1>
+        <p className="text-emerald-200/60 text-sm">{currentUser?.email}</p>
+        
+        {/* Eco Points */}
+        <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 border border-amber-500/30 rounded-full">
+          <Award className="w-4 h-4 text-amber-400" />
+          <span className="text-lg font-bold text-amber-400">
+            {currentUser?.eco_points || 0}
+          </span>
+          <span className="text-sm text-white">Eco Points</span>
+        </div>
+      </div>
+
+      {/* Newsletter */}
+      <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-4">
+        <div className="flex items-center gap-3 mb-4">
+          <Mail className="w-5 h-5 text-emerald-400" />
+          <h2 className="text-lg font-semibold text-white">Newsletter</h2>
+        </div>
+        
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <Label className="text-white font-medium">
+              Virginia Environmental Updates
+            </Label>
+            <p className="text-sm text-emerald-200/60 mt-1">
+              Weekly updates about local environmental news
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-white mb-1">
-            {currentUser?.full_name || 'Eco Warrior'}
-          </h1>
-          <p className="text-sm text-emerald-200/60">{currentUser?.email}</p>
-          
-          {/* Eco Points */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="mt-6 px-6 py-3 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-full backdrop-blur-md"
+          <Switch
+            checked={currentUser?.newsletter_subscribed || false}
+            onCheckedChange={handleNewsletterToggle}
+          />
+        </div>
+
+        {currentUser?.newsletter_subscribed && newsletters.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {newsletters.slice(0, 3).map((newsletter) => (
+              <div key={newsletter.id} className="p-3 bg-[#1e4d3a]/60 rounded-lg">
+                <h4 className="text-sm font-medium text-white">{newsletter.title}</h4>
+                <p className="text-xs text-emerald-200/60 mt-1">
+                  {newsletter.location}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Settings */}
+      <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-4">
+        <div className="flex items-center gap-3 mb-4">
+          <Bell className="w-5 h-5 text-blue-400" />
+          <h2 className="text-lg font-semibold text-white">Settings</h2>
+        </div>
+        
+        <div className="space-y-3">
+          <Button
+            variant="outline"
+            className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
           >
-            <div className="flex items-center gap-2">
-              <Award className="w-5 h-5 text-amber-400" />
-              <span className="text-lg font-bold text-amber-400">
-                {currentUser?.eco_points || 0}
-              </span>
-              <span className="text-sm text-white">Eco Points</span>
-            </div>
-          </motion.div>
-        </motion.div>
-      </div>
-
-      {/* Content */}
-      <div className="px-6 mt-6 space-y-4">
-        {/* Newsletter Section */}
-        <Card className="bg-[#0f5132]/80 border-emerald-500/30 backdrop-blur-md p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Mail className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-lg font-semibold text-white">Newsletter Subscription</h2>
-          </div>
+            <Bell className="w-4 h-4 mr-3" />
+            Notifications
+          </Button>
           
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <Label htmlFor="newsletter" className="text-white font-medium">
-                Virginia Environmental Updates
-              </Label>
-              <p className="text-sm text-emerald-200/60 mt-1">
-                Receive weekly updates about environmental news in Virginia
-              </p>
-            </div>
-            <Switch
-              id="newsletter"
-              checked={currentUser?.newsletter_subscribed || false}
-              onCheckedChange={handleNewsletterToggle}
-            />
-          </div>
+          <Button
+            variant="outline"
+            className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
+          >
+            <User className="w-4 h-4 mr-3" />
+            Edit Profile
+          </Button>
+        </div>
+      </Card>
 
-          {currentUser?.newsletter_subscribed && newsletters.length > 0 && (
-            <div className="mt-6 space-y-3">
-              <h3 className="text-sm font-semibold text-emerald-200/80">Recent Updates</h3>
-              {newsletters.map((newsletter, index) => (
-                <motion.div
-                  key={newsletter.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="p-4 bg-[#1e4d3a]/60 rounded-lg border border-emerald-500/20"
-                >
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-1" />
-                    <div>
-                      <h4 className="text-sm font-medium text-white">{newsletter.title}</h4>
-                      <p className="text-xs text-emerald-200/60 mt-1">
-                        {newsletter.location} • {newsletter.category.replace(/_/g, ' ')}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {/* Settings */}
-        <Card className="bg-[#0f5132]/80 border-emerald-500/30 backdrop-blur-md p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Settings className="w-5 h-5 text-blue-400" />
-            <h2 className="text-lg font-semibold text-white">Settings</h2>
-          </div>
-          
-          <div className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
-            >
-              <Bell className="w-4 h-4 mr-3" />
-              Notification Preferences
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
-            >
-              <User className="w-4 h-4 mr-3" />
-              Edit Profile
-            </Button>
-          </div>
-        </Card>
-
-        {/* Logout */}
-        <Button
-          onClick={handleLogout}
-          variant="outline"
-          className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Logout
-        </Button>
-      </div>
+      {/* Logout */}
+      <Button
+        onClick={handleLogout}
+        variant="outline"
+        className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
+      >
+        <LogOut className="w-4 h-4 mr-2" />
+        Logout
+      </Button>
     </div>
   );
 }
