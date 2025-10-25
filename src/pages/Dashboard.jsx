@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Leaf, Circle, ChevronRight, Plus, Sparkles, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInHours } from "date-fns"; // Added differenceInHours
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -42,11 +43,14 @@ export default function Dashboard() {
             setLocationName(data.address.city || data.address.county || data.address.state || "Virginia");
           } catch (error) {
             console.error("Error getting location name:", error);
+            // Fallback to default location name if error occurs
+            setLocationName("Virginia");
           }
         },
         (error) => {
           console.error("Location error:", error);
-          setUserLocation({ latitude: 37.5407, longitude: -77.4360 });
+          setUserLocation({ latitude: 37.5407, longitude: -77.4360 }); // Default to Richmond, VA
+          setLocationName("Virginia"); // Ensure location name is set even if geolocation fails
         }
       );
     }
@@ -85,32 +89,26 @@ export default function Dashboard() {
     initialData: [],
   });
 
-  const createScoreMutation = useMutation({
-    mutationFn: (data) => base44.entities.EcoScore.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['todayScore'] });
-    },
-  });
-
   const generateNewsMutation = useMutation({
     mutationFn: async () => {
       // Fetch REAL environmental news from the internet
       const newsData = await base44.integrations.Core.InvokeLLM({
-        prompt: `Search the internet for the 3 most recent environmental news articles from ${locationName}, Virginia or the broader Virginia area. Include actual news from the last 7 days about:
+        prompt: `Search the internet for the 3 most recent environmental news articles from ${locationName}, Virginia or the broader Virginia area. Include actual news from TODAY or the last 2-3 days about:
 - Local environmental initiatives and programs
 - Climate action and sustainability efforts
 - Environmental challenges or issues
 - Community green projects
 - Pollution or air quality updates
 - Wildlife or conservation news
+- Local government environmental decisions
 
 For each article, provide:
-- The real headline/title
+- The real headline/title from an actual news source
 - A 2-3 sentence summary of the actual news
 - The specific location in Virginia
-- The source or context
+- The date the news was published
 
-Make sure these are REAL, current news items, not made up.`,
+Make sure these are REAL, CURRENT news items from actual news sources, not made up. Search Google News, local Virginia news sites, environmental organizations.`,
         add_context_from_internet: true,
         response_json_schema: {
           type: "object",
@@ -123,7 +121,8 @@ Make sure these are REAL, current news items, not made up.`,
                   title: { type: "string" },
                   content: { type: "string" },
                   location: { type: "string" },
-                  source: { type: "string" }
+                  source: { type: "string" },
+                  date: { type: "string" } // Added date to schema
                 }
               }
             }
@@ -145,7 +144,8 @@ Make sure these are REAL, current news items, not made up.`,
           content: article.content,
           location: article.location,
           category: "climate_news",
-          publish_date: today,
+          // Use article.date if provided by LLM, otherwise fallback to today
+          publish_date: article.date ? format(new Date(article.date), 'yyyy-MM-dd') : today,
           image_url: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800"
         });
       }
@@ -154,6 +154,36 @@ Make sure these are REAL, current news items, not made up.`,
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['newsletters'] });
+    },
+  });
+
+  // Auto-fetch news if older than 24 hours or if no news exists
+  useEffect(() => {
+    // Only proceed if locationName is determined (not the initial default "Virginia" if it's going to change)
+    // and if news is not currently loading or being generated.
+    if (locationName && !newsLoading && !generateNewsMutation.isPending) {
+      if (newsletters.length === 0) {
+        // No news at all, fetch immediately
+        generateNewsMutation.mutate();
+      } else {
+        // Check if news is older than 24 hours
+        const latestNews = newsletters[0];
+        const newsDate = new Date(latestNews.publish_date);
+        const hoursSinceUpdate = differenceInHours(new Date(), newsDate);
+        
+        if (hoursSinceUpdate >= 24) {
+          // News is stale, auto-fetch new news
+          generateNewsMutation.mutate();
+        }
+      }
+    }
+  }, [newsletters, locationName, newsLoading, generateNewsMutation.mutate, generateNewsMutation.isPending]);
+
+
+  const createScoreMutation = useMutation({
+    mutationFn: (data) => base44.entities.EcoScore.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todayScore'] });
     },
   });
 
@@ -322,10 +352,13 @@ Make sure these are REAL, current news items, not made up.`,
         )}
       </div>
 
-      {/* Real Environmental News */}
+      {/* Real Environmental News - Auto Updates Daily */}
       <div className="px-6 pb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">Local Environmental News</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Local Environmental News</h2>
+            <p className="text-xs text-emerald-200/40 mt-0.5">Updates automatically every 24 hours</p>
+          </div>
           <Button
             size="sm"
             variant="outline"
@@ -341,7 +374,7 @@ Make sure these are REAL, current news items, not made up.`,
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-1" />
-                Fetch Latest
+                Refresh Now
               </>
             )}
           </Button>
@@ -352,7 +385,7 @@ Make sure these are REAL, current news items, not made up.`,
             <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-6 text-center">
               <Loader2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 animate-spin" />
               <p className="text-emerald-200/50 text-sm">
-                Fetching real-time environmental news from Virginia...
+                Fetching real-time environmental news from {locationName}...
               </p>
             </Card>
           ) : newsletters.length > 0 ? (
@@ -375,7 +408,7 @@ Make sure these are REAL, current news items, not made up.`,
             <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-6 text-center">
               <Sparkles className="w-8 h-8 text-emerald-400/30 mx-auto mb-2" />
               <p className="text-emerald-200/50 text-sm mb-4">
-                Click "Fetch Latest" to load real environmental news from your area
+                Loading environmental news from your area...
               </p>
               <p className="text-xs text-emerald-200/30">
                 News is fetched from the internet in real-time
