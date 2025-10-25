@@ -4,14 +4,15 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Leaf, Circle, ChevronRight, Plus, Sparkles, Loader2 } from "lucide-react";
-import { format, differenceInHours } from "date-fns"; // Added differenceInHours
+import { MapPin, Leaf, Circle, ChevronRight, Plus, Sparkles, Loader2, AlertCircle } from "lucide-react";
+import { format, differenceInHours } from "date-fns";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [locationName, setLocationName] = useState("Virginia");
+  const [newsError, setNewsError] = useState(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -43,14 +44,13 @@ export default function Dashboard() {
             setLocationName(data.address.city || data.address.county || data.address.state || "Virginia");
           } catch (error) {
             console.error("Error getting location name:", error);
-            // Fallback to default location name if error occurs
-            setLocationName("Virginia");
+            // Fallback to default location name if error occurs is handled by initial state
           }
         },
         (error) => {
           console.error("Location error:", error);
           setUserLocation({ latitude: 37.5407, longitude: -77.4360 }); // Default to Richmond, VA
-          setLocationName("Virginia"); // Ensure location name is set even if geolocation fails
+          // locationName will remain "Virginia" from initial state
         }
       );
     }
@@ -91,79 +91,91 @@ export default function Dashboard() {
 
   const generateNewsMutation = useMutation({
     mutationFn: async () => {
-      // Fetch REAL environmental news from the internet
-      const newsData = await base44.integrations.Core.InvokeLLM({
-        prompt: `Search the internet for the 3 most recent environmental news articles from ${locationName}, Virginia or the broader Virginia area. Include actual news from TODAY or the last 2-3 days about:
-- Local environmental initiatives and programs
-- Climate action and sustainability efforts
-- Environmental challenges or issues
-- Community green projects
-- Pollution or air quality updates
-- Wildlife or conservation news
-- Local government environmental decisions
+      setNewsError(null); // Clear any previous error before starting a new mutation
+      
+      try {
+        console.log("Fetching environmental news for:", locationName);
+        
+        // Fetch REAL environmental news from the internet
+        const newsData = await base44.integrations.Core.InvokeLLM({
+          prompt: `Search Google News and the internet for the 3 most recent environmental news articles about ${locationName}, Virginia. Find REAL news from the last 7 days about environmental topics like:
+- Climate action and sustainability
+- Local environmental initiatives
+- Pollution or air quality
+- Wildlife conservation
+- Green energy projects
 
-For each article, provide:
-- The real headline/title from an actual news source
-- A 2-3 sentence summary of the actual news
-- The specific location in Virginia
-- The date the news was published
-
-Make sure these are REAL, CURRENT news items from actual news sources, not made up. Search Google News, local Virginia news sites, environmental organizations.`,
-        add_context_from_internet: true,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            articles: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  title: { type: "string" },
-                  content: { type: "string" },
-                  location: { type: "string" },
-                  source: { type: "string" },
-                  date: { type: "string" } // Added date to schema
+Return actual news headlines and summaries from real sources.`,
+          add_context_from_internet: true,
+          response_json_schema: {
+            type: "object",
+            properties: {
+              articles: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    content: { type: "string" },
+                    location: { type: "string" }
+                  }
                 }
               }
             }
           }
-        }
-      });
-
-      // Delete old news first
-      const oldNews = await base44.entities.Newsletter.list();
-      for (const news of oldNews) {
-        await base44.entities.Newsletter.delete(news.id);
-      }
-
-      // Create new real news entries
-      const today = format(new Date(), 'yyyy-MM-dd');
-      for (const article of newsData.articles) {
-        await base44.entities.Newsletter.create({
-          title: article.title,
-          content: article.content,
-          location: article.location,
-          category: "climate_news",
-          // Use article.date if provided by LLM, otherwise fallback to today
-          publish_date: article.date ? format(new Date(article.date), 'yyyy-MM-dd') : today,
-          image_url: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800"
         });
-      }
 
-      return newsData;
+        console.log("News fetched:", newsData);
+
+        if (!newsData || !newsData.articles || newsData.articles.length === 0) {
+          throw new Error("No news articles returned from the search. Please try again.");
+        }
+
+        // Delete old news first
+        const oldNews = await base44.entities.Newsletter.list();
+        for (const news of oldNews) {
+          await base44.entities.Newsletter.delete(news.id);
+        }
+
+        // Create new real news entries
+        const today = format(new Date(), 'yyyy-MM-dd');
+        for (const article of newsData.articles) {
+          await base44.entities.Newsletter.create({
+            title: article.title,
+            content: article.content,
+            location: article.location || locationName, // Use article's location, or fallback to general location
+            category: "climate_news",
+            publish_date: today, // Use today's date for consistency
+            image_url: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800"
+          });
+        }
+
+        console.log("News saved to database");
+        return newsData;
+      } catch (error) {
+        console.error("Error fetching news:", error);
+        setNewsError(error.message || "Failed to fetch news. Please try again.");
+        throw error; // Re-throw to be caught by onError callback
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['newsletters'] });
     },
+    onError: (error) => {
+      console.error("Mutation error:", error);
+      setNewsError(error.message || "An unexpected error occurred during news generation.");
+    }
   });
 
   // Auto-fetch news if older than 24 hours or if no news exists
   useEffect(() => {
     // Only proceed if locationName is determined (not the initial default "Virginia" if it's going to change)
     // and if news is not currently loading or being generated.
-    if (locationName && !newsLoading && !generateNewsMutation.isPending) {
+    if (newsLoading || generateNewsMutation.isPending) return; // Prevent re-triggering while loading/pending
+
+    const checkNewsAge = async () => {
       if (newsletters.length === 0) {
-        // No news at all, fetch immediately
+        console.log("No news found, attempting to fetch...");
         generateNewsMutation.mutate();
       } else {
         // Check if news is older than 24 hours
@@ -171,13 +183,21 @@ Make sure these are REAL, CURRENT news items from actual news sources, not made 
         const newsDate = new Date(latestNews.publish_date);
         const hoursSinceUpdate = differenceInHours(new Date(), newsDate);
         
+        console.log(`Latest news is ${hoursSinceUpdate} hours old.`);
+        
         if (hoursSinceUpdate >= 24) {
-          // News is stale, auto-fetch new news
+          console.log("News is stale (older than 24 hours), fetching fresh news...");
           generateNewsMutation.mutate();
         }
       }
+    };
+
+    // Only auto-fetch if we have a more specific location than the default "Virginia"
+    // to avoid unnecessary LLM calls until location is resolved.
+    if (locationName && locationName !== "Virginia") {
+      checkNewsAge();
     }
-  }, [newsletters, locationName, newsLoading, generateNewsMutation.mutate, generateNewsMutation.isPending]);
+  }, [newsletters.length, locationName, newsLoading, generateNewsMutation.mutate, generateNewsMutation.isPending]);
 
 
   const createScoreMutation = useMutation({
@@ -202,6 +222,7 @@ Make sure these are REAL, CURRENT news items from actual news sources, not made 
   };
 
   const handleGenerateNews = () => {
+    setNewsError(null); // Clear error on manual refresh
     generateNewsMutation.mutate();
   };
 
@@ -374,18 +395,30 @@ Make sure these are REAL, CURRENT news items from actual news sources, not made 
             ) : (
               <>
                 <Sparkles className="w-4 h-4 mr-1" />
-                Refresh Now
+                Fetch Latest
               </>
             )}
           </Button>
         </div>
 
         <div className="space-y-3">
+          {newsError && (
+            <Card className="bg-red-900/20 border-red-500/30 backdrop-blur-sm p-4">
+              <div className="flex items-center gap-2 text-red-400">
+                <AlertCircle className="w-4 h-4" />
+                <p className="text-sm">Error: {newsError}</p>
+              </div>
+            </Card>
+          )}
+
           {generateNewsMutation.isPending ? (
             <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-6 text-center">
               <Loader2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 animate-spin" />
               <p className="text-emerald-200/50 text-sm">
                 Fetching real-time environmental news from {locationName}...
+              </p>
+              <p className="text-xs text-emerald-200/30 mt-2">
+                This may take 10-15 seconds
               </p>
             </Card>
           ) : newsletters.length > 0 ? (
@@ -408,7 +441,7 @@ Make sure these are REAL, CURRENT news items from actual news sources, not made 
             <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-6 text-center">
               <Sparkles className="w-8 h-8 text-emerald-400/30 mx-auto mb-2" />
               <p className="text-emerald-200/50 text-sm mb-4">
-                Loading environmental news from your area...
+                Click "Fetch Latest" to load environmental news
               </p>
               <p className="text-xs text-emerald-200/30">
                 News is fetched from the internet in real-time
