@@ -97,7 +97,6 @@ export default function Dashboard() {
       
       console.log("Starting news fetch for:", locationName);
       
-      // Fetch REAL environmental news from the internet
       const newsData = await base44.integrations.Core.InvokeLLM({
         prompt: `Search the internet for 3 recent environmental news articles about ${locationName}, Virginia. Find real news from the last week about:
 - Climate action
@@ -132,13 +131,11 @@ Return real headlines and summaries.`,
         throw new Error("No articles returned");
       }
 
-      // Delete old news
       const oldNews = await base44.entities.Newsletter.list();
       for (const news of oldNews) {
         await base44.entities.Newsletter.delete(news.id);
       }
 
-      // Create new news entries
       const today = format(new Date(), 'yyyy-MM-dd');
       for (const article of newsData.articles) {
         await base44.entities.Newsletter.create({
@@ -199,7 +196,6 @@ Return real headlines and summaries.`,
 
   return (
     <div className="min-h-screen">
-      {/* Score Circle */}
       <div className="px-6 pt-12 pb-6">
         <div className="flex flex-col items-center mb-8">
           <div className="relative w-48 h-48 mb-6">
@@ -260,7 +256,6 @@ Return real headlines and summaries.`,
         </div>
       </div>
 
-      {/* Events List */}
       <div className="px-6 pb-8 space-y-3">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Volunteer Opportunities</h2>
@@ -324,7 +319,6 @@ Return real headlines and summaries.`,
         )}
       </div>
 
-      {/* Environmental News */}
       <div className="px-6 pb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -402,7 +396,6 @@ Return real headlines and summaries.`,
         </div>
       </div>
 
-      {/* Activity Stats */}
       {todayScore && (
         <div className="px-6 pb-8">
           <h2 className="text-lg font-semibold text-white mb-4">Today's Activity</h2>
