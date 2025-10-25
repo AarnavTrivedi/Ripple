@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -5,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, Leaf, Circle, ChevronRight, Plus, Sparkles, Loader2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
+import ActivityLogger from "../components/dashboard/ActivityLogger";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -91,6 +93,13 @@ export default function Dashboard() {
     },
   });
 
+  const updateScoreMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.EcoScore.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todayScore'] });
+    },
+  });
+
   const generateNewsMutation = useMutation({
     mutationFn: async () => {
       setNewsError(null);
@@ -165,7 +174,7 @@ Return real headlines and summaries.`,
     const today = format(new Date(), 'yyyy-MM-dd');
     createScoreMutation.mutate({
       date: today,
-      score: 50,
+      score: 0, // Changed from 50 to 0
       walking_minutes: 0,
       cycling_minutes: 0,
       public_transport_minutes: 0,
@@ -173,6 +182,26 @@ Return real headlines and summaries.`,
       green_actions_completed: 0,
       carbon_saved_kg: 0
     });
+  };
+
+  const handleLogActivity = (activityData) => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    
+    if (todayScore) {
+      updateScoreMutation.mutate({
+        id: todayScore.id,
+        data: {
+          ...todayScore, // Preserve existing data
+          ...activityData, // Apply new activity data
+          date: today // Ensure date is correct
+        }
+      });
+    } else {
+      createScoreMutation.mutate({
+        ...activityData,
+        date: today
+      });
+    }
   };
 
   const handleGenerateNews = () => {
@@ -255,6 +284,10 @@ Return real headlines and summaries.`,
           </div>
         </div>
       </div>
+
+      {todayScore && (
+        <ActivityLogger onLogActivity={handleLogActivity} currentScore={score} currentActivities={todayScore} />
+      )}
 
       <div className="px-6 pb-8 space-y-3">
         <div className="flex items-center justify-between mb-4">
