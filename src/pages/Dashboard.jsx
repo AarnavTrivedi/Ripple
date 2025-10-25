@@ -3,14 +3,14 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Leaf, Circle, ChevronRight, Plus, Sparkles } from "lucide-react";
+import { MapPin, Leaf, Circle, ChevronRight, Plus, Sparkles, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
-  const [generatingNews, setGeneratingNews] = useState(false);
+  const [locationName, setLocationName] = useState("Virginia");
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -23,15 +23,29 @@ export default function Dashboard() {
     };
     fetchUser();
 
+    // Real-time location tracking
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
+        async (position) => {
+          const coords = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude
-          });
+          };
+          setUserLocation(coords);
+          
+          // Get actual location name from coordinates
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}`
+            );
+            const data = await response.json();
+            setLocationName(data.address.city || data.address.county || data.address.state || "Virginia");
+          } catch (error) {
+            console.error("Error getting location name:", error);
+          }
         },
         (error) => {
+          console.error("Location error:", error);
           setUserLocation({ latitude: 37.5407, longitude: -77.4360 });
         }
       );
@@ -65,9 +79,9 @@ export default function Dashboard() {
     initialData: [],
   });
 
-  const { data: newsletters } = useQuery({
+  const { data: newsletters, isLoading: newsLoading } = useQuery({
     queryKey: ['newsletters'],
-    queryFn: () => base44.entities.Newsletter.list('-publish_date', 3),
+    queryFn: () => base44.entities.Newsletter.list('-publish_date', 5),
     initialData: [],
   });
 
@@ -80,8 +94,23 @@ export default function Dashboard() {
 
   const generateNewsMutation = useMutation({
     mutationFn: async () => {
+      // Fetch REAL environmental news from the internet
       const newsData = await base44.integrations.Core.InvokeLLM({
-        prompt: `Generate 3 recent environmental news articles relevant to Virginia, USA. Focus on local environmental initiatives, climate action, sustainability programs, or environmental challenges in Virginia. Make them realistic and specific to Virginia.`,
+        prompt: `Search the internet for the 3 most recent environmental news articles from ${locationName}, Virginia or the broader Virginia area. Include actual news from the last 7 days about:
+- Local environmental initiatives and programs
+- Climate action and sustainability efforts
+- Environmental challenges or issues
+- Community green projects
+- Pollution or air quality updates
+- Wildlife or conservation news
+
+For each article, provide:
+- The real headline/title
+- A 2-3 sentence summary of the actual news
+- The specific location in Virginia
+- The source or context
+
+Make sure these are REAL, current news items, not made up.`,
         add_context_from_internet: true,
         response_json_schema: {
           type: "object",
@@ -94,7 +123,7 @@ export default function Dashboard() {
                   title: { type: "string" },
                   content: { type: "string" },
                   location: { type: "string" },
-                  category: { type: "string" }
+                  source: { type: "string" }
                 }
               }
             }
@@ -102,7 +131,13 @@ export default function Dashboard() {
         }
       });
 
-      // Create newsletter entries
+      // Delete old news first
+      const oldNews = await base44.entities.Newsletter.list();
+      for (const news of oldNews) {
+        await base44.entities.Newsletter.delete(news.id);
+      }
+
+      // Create new real news entries
       const today = format(new Date(), 'yyyy-MM-dd');
       for (const article of newsData.articles) {
         await base44.entities.Newsletter.create({
@@ -119,7 +154,6 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['newsletters'] });
-      setGeneratingNews(false);
     },
   });
 
@@ -138,8 +172,18 @@ export default function Dashboard() {
   };
 
   const handleGenerateNews = () => {
-    setGeneratingNews(true);
     generateNewsMutation.mutate();
+  };
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 3959; // Earth radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return (R * c).toFixed(1);
   };
 
   const score = todayScore?.score || 0;
@@ -208,9 +252,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 text-sm text-emerald-200/50 ml-4">
             <MapPin className="w-3.5 h-3.5" />
             <span>
-              {userLocation 
-                ? `${userLocation.latitude.toFixed(2)}, ${userLocation.longitude.toFixed(2)}`
-                : 'Getting location...'}
+              {locationName}, Virginia
             </span>
           </div>
         </div>
@@ -251,11 +293,11 @@ export default function Dashboard() {
                 
                 <div className="flex items-center gap-4 text-xs text-emerald-200/50">
                   <span>{format(new Date(action.date), 'MMM d, h:mm a')}</span>
-                  {action.latitude && <span>
-                    {userLocation ? 
-                      `${(Math.sqrt(Math.pow(action.latitude - userLocation.latitude, 2) + Math.pow(action.longitude - userLocation.longitude, 2)) * 69).toFixed(1)} mi` 
-                      : 'Nearby'}
-                  </span>}
+                  {action.latitude && userLocation && (
+                    <span>
+                      {calculateDistance(userLocation.latitude, userLocation.longitude, action.latitude, action.longitude)} mi away
+                    </span>
+                  )}
                   {action.points_reward && (
                     <span className="text-emerald-400">+{action.points_reward} pts</span>
                   )}
@@ -266,14 +308,21 @@ export default function Dashboard() {
         ) : (
           <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-8 text-center">
             <Leaf className="w-12 h-12 text-emerald-500/30 mx-auto mb-3" />
-            <p className="text-emerald-200/50 text-sm">
+            <p className="text-emerald-200/50 text-sm mb-4">
               No upcoming events nearby
             </p>
+            <Button
+              size="sm"
+              className="bg-emerald-500/80 hover:bg-emerald-600"
+              onClick={() => window.location.href = '/Map'}
+            >
+              Add First Event
+            </Button>
           </Card>
         )}
       </div>
 
-      {/* Environmental News */}
+      {/* Real Environmental News */}
       <div className="px-6 pb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Local Environmental News</h2>
@@ -282,15 +331,31 @@ export default function Dashboard() {
             variant="outline"
             className="border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
             onClick={handleGenerateNews}
-            disabled={generatingNews}
+            disabled={generateNewsMutation.isPending}
           >
-            <Sparkles className="w-4 h-4 mr-1" />
-            {generatingNews ? 'Loading...' : 'Fetch Latest'}
+            {generateNewsMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-1" />
+                Fetch Latest
+              </>
+            )}
           </Button>
         </div>
 
         <div className="space-y-3">
-          {newsletters.length > 0 ? (
+          {generateNewsMutation.isPending ? (
+            <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-6 text-center">
+              <Loader2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 animate-spin" />
+              <p className="text-emerald-200/50 text-sm">
+                Fetching real-time environmental news from Virginia...
+              </p>
+            </Card>
+          ) : newsletters.length > 0 ? (
             newsletters.map((news) => (
               <Card 
                 key={news.id}
@@ -308,8 +373,12 @@ export default function Dashboard() {
             ))
           ) : (
             <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-6 text-center">
-              <p className="text-emerald-200/50 text-sm">
-                Click "Fetch Latest" to load environmental news
+              <Sparkles className="w-8 h-8 text-emerald-400/30 mx-auto mb-2" />
+              <p className="text-emerald-200/50 text-sm mb-4">
+                Click "Fetch Latest" to load real environmental news from your area
+              </p>
+              <p className="text-xs text-emerald-200/30">
+                News is fetched from the internet in real-time
               </p>
             </Card>
           )}
