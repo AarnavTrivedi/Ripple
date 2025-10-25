@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tantml:react-query";
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Navigation, Plus, X, AlertTriangle } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Navigation, Plus, X, AlertTriangle, Calendar } from "lucide-react";
 import L from "leaflet";
+import { format } from "date-fns";
 import "leaflet/dist/leaflet.css";
 
-// Component to update map center when user location changes
 function LocationMarker({ position }) {
   const map = useMap();
 
@@ -41,7 +42,9 @@ export default function MapPage() {
   const queryClient = useQueryClient();
   const [userLocation, setUserLocation] = useState(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [dialogType, setDialogType] = useState('waypoint');
   const [showHazards, setShowHazards] = useState(true);
+  
   const [newWaypoint, setNewWaypoint] = useState({
     name: '',
     description: '',
@@ -50,24 +53,41 @@ export default function MapPage() {
     longitude: null
   });
 
+  const [newVolunteerEvent, setNewVolunteerEvent] = useState({
+    title: '',
+    description: '',
+    action_type: 'volunteer',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    points_reward: 50,
+    latitude: null,
+    longitude: null
+  });
+
   useEffect(() => {
-    // Real-time location tracking
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
         (position) => {
           setUserLocation([position.coords.latitude, position.coords.longitude]);
-          // Update waypoint coordinates to user's location when adding
-          if (showAddDialog && !newWaypoint.latitude) {
-            setNewWaypoint(prev => ({
-              ...prev,
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude
-            }));
+          
+          if (showAddDialog) {
+            if (dialogType === 'waypoint' && !newWaypoint.latitude) {
+              setNewWaypoint(prev => ({
+                ...prev,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+              }));
+            }
+            if (dialogType === 'volunteer' && !newVolunteerEvent.latitude) {
+              setNewVolunteerEvent(prev => ({
+                ...prev,
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+              }));
+            }
           }
         },
         (error) => {
           console.error("Location error:", error);
-          // Fallback to Richmond, VA
           setUserLocation([37.5407, -77.4360]);
         },
         {
@@ -79,7 +99,7 @@ export default function MapPage() {
 
       return () => navigator.geolocation.clearWatch(watchId);
     }
-  }, [showAddDialog, newWaypoint.latitude]);
+  }, [showAddDialog, dialogType, newWaypoint.latitude, newVolunteerEvent.latitude]);
 
   const { data: waypoints } = useQuery({
     queryKey: ['waypoints'],
@@ -114,12 +134,37 @@ export default function MapPage() {
     },
   });
 
+  const createVolunteerMutation = useMutation({
+    mutationFn: (data) => base44.entities.GreenAction.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['greenActions'] });
+      setShowAddDialog(false);
+      setNewVolunteerEvent({
+        title: '',
+        description: '',
+        action_type: 'volunteer',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        points_reward: 50,
+        latitude: null,
+        longitude: null
+      });
+    },
+  });
+
   const handleAddWaypoint = (e) => {
     e.preventDefault();
     createWaypointMutation.mutate({
       ...newWaypoint,
       is_user_created: true,
       eco_rating: 85
+    });
+  };
+
+  const handleAddVolunteer = (e) => {
+    e.preventDefault();
+    createVolunteerMutation.mutate({
+      ...newVolunteerEvent,
+      completed: false
     });
   };
 
@@ -179,10 +224,24 @@ export default function MapPage() {
             <Button
               size="sm"
               className="bg-emerald-500 hover:bg-emerald-600"
-              onClick={() => setShowAddDialog(true)}
+              onClick={() => {
+                setDialogType('waypoint');
+                setShowAddDialog(true);
+              }}
             >
               <Plus className="w-4 h-4 mr-1" />
               Add Spot
+            </Button>
+            <Button
+              size="sm"
+              className="bg-amber-500 hover:bg-amber-600"
+              onClick={() => {
+                setDialogType('volunteer');
+                setShowAddDialog(true);
+              }}
+            >
+              <Calendar className="w-4 h-4 mr-1" />
+              Add Event
             </Button>
           </div>
         </div>
@@ -229,6 +288,7 @@ export default function MapPage() {
                 <div>
                   <h3 className="font-semibold">{action.title}</h3>
                   <p className="text-sm">{action.description}</p>
+                  <p className="text-xs mt-1">{format(new Date(action.date), 'MMM d, yyyy')}</p>
                   {action.points_reward && (
                     <p className="text-xs text-emerald-600 mt-1">+{action.points_reward} points</p>
                   )}
@@ -263,12 +323,14 @@ export default function MapPage() {
         </MapContainer>
       </div>
 
-      {/* Add Waypoint Dialog */}
+      {/* Add Dialog */}
       {showAddDialog && (
         <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-4">
           <Card className="bg-[#0f5132] border-emerald-500/30 p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white">Add Eco Spot</h2>
+              <h2 className="text-xl font-bold text-white">
+                {dialogType === 'waypoint' ? 'Add Eco Spot' : 'Add Volunteer Event'}
+              </h2>
               <Button
                 size="icon"
                 variant="ghost"
@@ -279,60 +341,142 @@ export default function MapPage() {
               </Button>
             </div>
 
-            <form onSubmit={handleAddWaypoint} className="space-y-4">
-              <div>
-                <Label className="text-white">Name</Label>
-                <Input
-                  value={newWaypoint.name}
-                  onChange={(e) => setNewWaypoint({...newWaypoint, name: e.target.value})}
-                  className="bg-[#1e4d3a] border-emerald-500/30 text-white"
-                  required
-                />
-              </div>
+            {dialogType === 'waypoint' ? (
+              <form onSubmit={handleAddWaypoint} className="space-y-4">
+                <div>
+                  <Label className="text-white">Name</Label>
+                  <Input
+                    value={newWaypoint.name}
+                    onChange={(e) => setNewWaypoint({...newWaypoint, name: e.target.value})}
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    required
+                  />
+                </div>
 
-              <div>
-                <Label className="text-white">Description</Label>
-                <Textarea
-                  value={newWaypoint.description}
-                  onChange={(e) => setNewWaypoint({...newWaypoint, description: e.target.value})}
-                  className="bg-[#1e4d3a] border-emerald-500/30 text-white"
-                  rows={3}
-                />
-              </div>
+                <div>
+                  <Label className="text-white">Description</Label>
+                  <Textarea
+                    value={newWaypoint.description}
+                    onChange={(e) => setNewWaypoint({...newWaypoint, description: e.target.value})}
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    rows={3}
+                  />
+                </div>
 
-              <div>
-                <Label className="text-white">Type</Label>
-                <Select 
-                  value={newWaypoint.type} 
-                  onValueChange={(value) => setNewWaypoint({...newWaypoint, type: value})}
+                <div>
+                  <Label className="text-white">Type</Label>
+                  <Select 
+                    value={newWaypoint.type} 
+                    onValueChange={(value) => setNewWaypoint({...newWaypoint, type: value})}
+                  >
+                    <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30">
+                      <SelectItem value="park">Park</SelectItem>
+                      <SelectItem value="recycling_center">Recycling Center</SelectItem>
+                      <SelectItem value="charging_station">EV Charging</SelectItem>
+                      <SelectItem value="bike_station">Bike Station</SelectItem>
+                      <SelectItem value="community_garden">Community Garden</SelectItem>
+                      <SelectItem value="water_refill">Water Refill</SelectItem>
+                      <SelectItem value="eco_store">Eco Store</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="text-xs text-emerald-200/60">
+                  Location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-emerald-500 hover:bg-emerald-600"
+                  disabled={createWaypointMutation.isPending}
                 >
-                  <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1e4d3a] border-emerald-500/30">
-                    <SelectItem value="park">Park</SelectItem>
-                    <SelectItem value="recycling_center">Recycling Center</SelectItem>
-                    <SelectItem value="charging_station">EV Charging</SelectItem>
-                    <SelectItem value="bike_station">Bike Station</SelectItem>
-                    <SelectItem value="community_garden">Community Garden</SelectItem>
-                    <SelectItem value="water_refill">Water Refill</SelectItem>
-                    <SelectItem value="eco_store">Eco Store</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  {createWaypointMutation.isPending ? 'Adding...' : 'Add Eco Spot'}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleAddVolunteer} className="space-y-4">
+                <div>
+                  <Label className="text-white">Event Title</Label>
+                  <Input
+                    value={newVolunteerEvent.title}
+                    onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, title: e.target.value})}
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    placeholder="e.g., Beach Cleanup at Virginia Beach"
+                    required
+                  />
+                </div>
 
-              <div className="text-xs text-emerald-200/60">
-                Location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
-              </div>
+                <div>
+                  <Label className="text-white">Description</Label>
+                  <Textarea
+                    value={newVolunteerEvent.description}
+                    onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, description: e.target.value})}
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    placeholder="Describe the volunteer opportunity..."
+                    rows={3}
+                    required
+                  />
+                </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-emerald-500 hover:bg-emerald-600"
-                disabled={createWaypointMutation.isPending}
-              >
-                {createWaypointMutation.isPending ? 'Adding...' : 'Add Eco Spot'}
-              </Button>
-            </form>
+                <div>
+                  <Label className="text-white">Event Type</Label>
+                  <Select 
+                    value={newVolunteerEvent.action_type} 
+                    onValueChange={(value) => setNewVolunteerEvent({...newVolunteerEvent, action_type: value})}
+                  >
+                    <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30">
+                      <SelectItem value="volunteer">Volunteer</SelectItem>
+                      <SelectItem value="plant_tree">Tree Planting</SelectItem>
+                      <SelectItem value="cleanup_event">Cleanup Event</SelectItem>
+                      <SelectItem value="workshop">Workshop</SelectItem>
+                      <SelectItem value="donation_drive">Donation Drive</SelectItem>
+                      <SelectItem value="repair_cafe">Repair Cafe</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-white">Event Date</Label>
+                  <Input
+                    type="date"
+                    value={newVolunteerEvent.date}
+                    onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, date: e.target.value})}
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-white">Eco Points Reward</Label>
+                  <Input
+                    type="number"
+                    value={newVolunteerEvent.points_reward}
+                    onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, points_reward: parseInt(e.target.value)})}
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    min="10"
+                    max="200"
+                  />
+                </div>
+
+                <div className="text-xs text-emerald-200/60">
+                  Location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-amber-500 hover:bg-amber-600"
+                  disabled={createVolunteerMutation.isPending}
+                >
+                  {createVolunteerMutation.isPending ? 'Creating...' : 'Create Event'}
+                </Button>
+              </form>
+            )}
           </Card>
         </div>
       )}

@@ -3,13 +3,14 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Leaf, Circle, ChevronRight } from "lucide-react";
+import { MapPin, Leaf, Circle, ChevronRight, Plus, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [generatingNews, setGeneratingNews] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -64,10 +65,61 @@ export default function Dashboard() {
     initialData: [],
   });
 
+  const { data: newsletters } = useQuery({
+    queryKey: ['newsletters'],
+    queryFn: () => base44.entities.Newsletter.list('-publish_date', 3),
+    initialData: [],
+  });
+
   const createScoreMutation = useMutation({
     mutationFn: (data) => base44.entities.EcoScore.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todayScore'] });
+    },
+  });
+
+  const generateNewsMutation = useMutation({
+    mutationFn: async () => {
+      const newsData = await base44.integrations.Core.InvokeLLM({
+        prompt: `Generate 3 recent environmental news articles relevant to Virginia, USA. Focus on local environmental initiatives, climate action, sustainability programs, or environmental challenges in Virginia. Make them realistic and specific to Virginia.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            articles: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  content: { type: "string" },
+                  location: { type: "string" },
+                  category: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Create newsletter entries
+      const today = format(new Date(), 'yyyy-MM-dd');
+      for (const article of newsData.articles) {
+        await base44.entities.Newsletter.create({
+          title: article.title,
+          content: article.content,
+          location: article.location,
+          category: "climate_news",
+          publish_date: today,
+          image_url: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800"
+        });
+      }
+
+      return newsData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['newsletters'] });
+      setGeneratingNews(false);
     },
   });
 
@@ -83,6 +135,11 @@ export default function Dashboard() {
       green_actions_completed: 0,
       carbon_saved_kg: 0
     });
+  };
+
+  const handleGenerateNews = () => {
+    setGeneratingNews(true);
+    generateNewsMutation.mutate();
   };
 
   const score = todayScore?.score || 0;
@@ -161,8 +218,20 @@ export default function Dashboard() {
 
       {/* Events List */}
       <div className="px-6 pb-8 space-y-3">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Volunteer Opportunities</h2>
+          <Button
+            size="sm"
+            className="bg-emerald-500/80 hover:bg-emerald-600"
+            onClick={() => window.location.href = '/Map'}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add Event
+          </Button>
+        </div>
+
         {upcomingActions.length > 0 ? (
-          upcomingActions.map((action, idx) => (
+          upcomingActions.map((action) => (
             <Card 
               key={action.id} 
               className="bg-[#0f5132]/50 border-emerald-500/20 backdrop-blur-sm hover:bg-[#0f5132]/60 hover:border-emerald-500/30 transition-all"
@@ -182,7 +251,11 @@ export default function Dashboard() {
                 
                 <div className="flex items-center gap-4 text-xs text-emerald-200/50">
                   <span>{format(new Date(action.date), 'MMM d, h:mm a')}</span>
-                  <span>2.5 mi</span>
+                  {action.latitude && <span>
+                    {userLocation ? 
+                      `${(Math.sqrt(Math.pow(action.latitude - userLocation.latitude, 2) + Math.pow(action.longitude - userLocation.longitude, 2)) * 69).toFixed(1)} mi` 
+                      : 'Nearby'}
+                  </span>}
                   {action.points_reward && (
                     <span className="text-emerald-400">+{action.points_reward} pts</span>
                   )}
@@ -198,6 +271,49 @@ export default function Dashboard() {
             </p>
           </Card>
         )}
+      </div>
+
+      {/* Environmental News */}
+      <div className="px-6 pb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Local Environmental News</h2>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+            onClick={handleGenerateNews}
+            disabled={generatingNews}
+          >
+            <Sparkles className="w-4 h-4 mr-1" />
+            {generatingNews ? 'Loading...' : 'Fetch Latest'}
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          {newsletters.length > 0 ? (
+            newsletters.map((news) => (
+              <Card 
+                key={news.id}
+                className="bg-[#0f5132]/50 border-emerald-500/20 backdrop-blur-sm p-4"
+              >
+                <h3 className="text-white font-semibold mb-1">{news.title}</h3>
+                <p className="text-sm text-emerald-200/60 mb-2">{news.content}</p>
+                <div className="flex items-center gap-2 text-xs text-emerald-200/40">
+                  <MapPin className="w-3 h-3" />
+                  <span>{news.location}</span>
+                  <span>•</span>
+                  <span>{format(new Date(news.publish_date), 'MMM d, yyyy')}</span>
+                </div>
+              </Card>
+            ))
+          ) : (
+            <Card className="bg-[#0f5132]/30 border-emerald-500/10 backdrop-blur-sm p-6 text-center">
+              <p className="text-emerald-200/50 text-sm">
+                Click "Fetch Latest" to load environmental news
+              </p>
+            </Card>
+          )}
+        </div>
       </div>
 
       {/* Quick Stats */}
