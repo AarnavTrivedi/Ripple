@@ -1,71 +1,127 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Camera, Leaf, AlertTriangle, Info, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Camera, Leaf, AlertTriangle, Navigation } from "lucide-react";
 
 export default function Scanner() {
-  const [isScanning, setIsScanning] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
   const [scanMode, setScanMode] = useState('green');
-  const [detectedItems, setDetectedItems] = useState([]);
+  const [nearbyItems, setNearbyItems] = useState([]);
 
-  const startScan = () => {
-    setIsScanning(true);
-    setTimeout(() => {
-      if (scanMode === 'green') {
-        setDetectedItems([
-          { id: 1, type: 'green', name: 'Community Garden', distance: '0.3 mi', points: 50 },
-          { id: 2, type: 'green', name: 'Tree Planting Event', distance: '1.2 mi', points: 100 },
-        ]);
-      } else {
-        setDetectedItems([
-          { id: 1, type: 'hazard', name: 'High Traffic Area', distance: '0.2 mi', level: 65 },
-          { id: 2, type: 'hazard', name: 'Industrial Zone', distance: '0.8 mi', level: 45 },
-        ]);
-      }
-    }, 1500);
-  };
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error("Location error:", error);
+          setUserLocation({ latitude: 37.5407, longitude: -77.4360 });
+        },
+        { enableHighAccuracy: true }
+      );
+    }
+  }, []);
 
-  const stopScan = () => {
-    setIsScanning(false);
-    setDetectedItems([]);
-  };
+  const { data: greenActions } = useQuery({
+    queryKey: ['greenActions'],
+    queryFn: () => base44.entities.GreenAction.list(),
+    initialData: [],
+  });
+
+  const { data: hazards } = useQuery({
+    queryKey: ['hazards'],
+    queryFn: () => base44.entities.HazardZone.list(),
+    initialData: [],
+  });
+
+  useEffect(() => {
+    if (!userLocation) return;
+
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    };
+
+    if (scanMode === 'green') {
+      const nearby = greenActions
+        .filter(a => a.latitude && a.longitude)
+        .map(a => ({
+          ...a,
+          distance: calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            a.latitude,
+            a.longitude
+          )
+        }))
+        .filter(a => a.distance < 5)
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 5);
+      setNearbyItems(nearby);
+    } else {
+      const nearby = hazards
+        .map(h => ({
+          ...h,
+          distance: calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            h.latitude,
+            h.longitude
+          )
+        }))
+        .filter(h => h.distance < 5)
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 5);
+      setNearbyItems(nearby);
+    }
+  }, [userLocation, scanMode, greenActions, hazards]);
+
+  if (!userLocation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white">Getting your location...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <div className="relative bg-[#0f5132]/95 backdrop-blur-xl border-b border-emerald-500/30 px-6 py-6 z-10">
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-transparent" />
-        <div className="relative flex items-center gap-3 mb-4">
-          <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl shadow-lg shadow-purple-500/50">
-            <Camera className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white">AR Scanner</h1>
-            <p className="text-sm text-emerald-200/60">Discover eco actions & hazards</p>
-          </div>
-        </div>
-
+    <div className="min-h-screen p-6 pt-8">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-white mb-4">AR Scanner</h1>
+        
         {/* Mode Toggle */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 mb-6">
           <Button
             onClick={() => setScanMode('green')}
-            className={`${
-              scanMode === 'green'
-                ? 'bg-gradient-to-br from-emerald-500 to-green-600'
-                : 'bg-[#1e4d3a]/60 text-gray-300'
-            }`}
+            className={scanMode === 'green' 
+              ? 'bg-emerald-500 hover:bg-emerald-600' 
+              : 'bg-[#0f5132]/60 border border-emerald-500/20 hover:bg-[#0f5132]'
+            }
           >
             <Leaf className="w-4 h-4 mr-2" />
             Green Actions
           </Button>
           <Button
             onClick={() => setScanMode('hazard')}
-            className={`${
-              scanMode === 'hazard'
-                ? 'bg-gradient-to-br from-amber-500 to-orange-600'
-                : 'bg-[#1e4d3a]/60 text-gray-300'
-            }`}
+            className={scanMode === 'hazard' 
+              ? 'bg-amber-500 hover:bg-amber-600' 
+              : 'bg-[#0f5132]/60 border border-emerald-500/20 hover:bg-[#0f5132]'
+            }
           >
             <AlertTriangle className="w-4 h-4 mr-2" />
             Hazards
@@ -73,110 +129,74 @@ export default function Scanner() {
         </div>
       </div>
 
-      {/* AR View */}
-      <div className="flex-1 relative bg-gradient-to-br from-[#0a3d29] via-[#0f5132] to-[#1e4d3a]">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative w-full h-full">
-            {isScanning && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: [0.3, 0.6, 0.3] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0"
-                style={{
-                  backgroundImage: `linear-gradient(${scanMode === 'green' ? '#10b981' : '#f59e0b'} 1px, transparent 1px),
-                                   linear-gradient(90deg, ${scanMode === 'green' ? '#10b981' : '#f59e0b'} 1px, transparent 1px)`,
-                  backgroundSize: '40px 40px',
-                }}
-              />
-            )}
+      {/* Camera View Simulation */}
+      <Card className="bg-[#0f5132]/40 border-emerald-500/20 backdrop-blur p-6 mb-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent" />
+        <div className="relative h-64 flex items-center justify-center">
+          <div className="w-24 h-24 border-2 border-emerald-400 rounded-full flex items-center justify-center">
+            <Camera className="w-12 h-12 text-emerald-400" />
+          </div>
+        </div>
+        <p className="text-center text-emerald-200/60 text-sm mt-4">
+          Point your camera to discover {scanMode === 'green' ? 'eco-friendly activities' : 'environmental hazards'} nearby
+        </p>
+      </Card>
 
-            <AnimatePresence>
-              {detectedItems.map((item, index) => (
-                <motion.div
-                  key={item.id}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ delay: index * 0.2 }}
-                  className="absolute"
-                  style={{
-                    left: `${30 + index * 40}%`,
-                    top: `${40 + index * 15}%`,
-                  }}
+      {/* Nearby Items */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-white mb-3">
+          Nearby {scanMode === 'green' ? 'Green Actions' : 'Hazard Zones'}
+        </h2>
+        
+        {nearbyItems.length > 0 ? (
+          nearbyItems.map((item, index) => (
+            <Card key={index} className={`${
+              scanMode === 'green' 
+                ? 'bg-emerald-900/40 border-emerald-500/30' 
+                : 'bg-amber-900/40 border-amber-500/30'
+            } backdrop-blur p-4`}>
+              <div className="flex items-start gap-3">
+                {scanMode === 'green' ? (
+                  <Leaf className="w-6 h-6 text-emerald-400 flex-shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-6 h-6 text-amber-400 flex-shrink-0" />
+                )}
+                <div className="flex-1">
+                  <h3 className="font-semibold text-white mb-1">
+                    {item.title || item.name}
+                  </h3>
+                  <p className="text-sm text-gray-300 mb-2">
+                    {item.description}
+                  </p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-emerald-200/60">
+                      {item.distance.toFixed(1)} km away
+                    </span>
+                    {scanMode === 'green' && item.points_reward && (
+                      <span className="text-emerald-400">+{item.points_reward} pts</span>
+                    )}
+                    {scanMode === 'hazard' && item.hazard_level && (
+                      <span className="text-amber-400">Level: {item.hazard_level}/100</span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-white hover:bg-white/10"
                 >
-                  <Card className={`${
-                    item.type === 'green'
-                      ? 'bg-emerald-900/90 border-emerald-500/50'
-                      : 'bg-amber-900/90 border-amber-500/50'
-                  } backdrop-blur-xl p-4 min-w-[200px]`}>
-                    <div className="flex items-start gap-3">
-                      {item.type === 'green' ? (
-                        <Leaf className="w-8 h-8 text-emerald-400" />
-                      ) : (
-                        <AlertTriangle className="w-8 h-8 text-amber-400" />
-                      )}
-                      <div>
-                        <h3 className="font-semibold text-white text-sm">{item.name}</h3>
-                        <p className="text-xs text-gray-300 mt-1">{item.distance} away</p>
-                        {item.points && (
-                          <p className="text-xs text-emerald-400 mt-1">+{item.points} points</p>
-                        )}
-                        {item.level && (
-                          <p className="text-xs text-amber-400 mt-1">Hazard: {item.level}/100</p>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className={`w-16 h-16 border-2 rounded-full ${
-                scanMode === 'green' ? 'border-emerald-400' : 'border-amber-400'
-              } opacity-50`}>
-                <div className="absolute inset-2 border-2 border-white rounded-full" />
+                  <Navigation className="w-4 h-4" />
+                </Button>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-          <Button
-            size="lg"
-            onClick={isScanning ? stopScan : startScan}
-            className={`w-20 h-20 rounded-full ${
-              isScanning
-                ? 'bg-red-600 hover:bg-red-700'
-                : scanMode === 'green'
-                ? 'bg-gradient-to-br from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700'
-                : 'bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700'
-            } shadow-2xl ${isScanning ? 'shadow-red-500/50' : scanMode === 'green' ? 'shadow-emerald-500/50' : 'shadow-amber-500/50'}`}
-          >
-            {isScanning ? (
-              <div className="w-6 h-6 bg-white rounded" />
-            ) : (
-              <Sparkles className="w-8 h-8" />
-            )}
-          </Button>
-        </div>
-
-        <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur-xl border-emerald-500/30 p-4">
-          <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-white font-medium mb-1">
-                {scanMode === 'green' ? 'Green Action Mode' : 'Hazard Detection Mode'}
-              </p>
-              <p className="text-xs text-emerald-200/60">
-                {scanMode === 'green'
-                  ? 'Point your camera to discover eco-friendly activities nearby in Virginia'
-                  : 'Scan your surroundings to identify environmental hazard zones'}
-              </p>
-            </div>
-          </div>
-        </Card>
+            </Card>
+          ))
+        ) : (
+          <Card className="bg-[#0f5132]/40 border-emerald-500/10 backdrop-blur p-6 text-center">
+            <p className="text-emerald-200/60 text-sm">
+              No {scanMode === 'green' ? 'green actions' : 'hazards'} detected within 5km
+            </p>
+          </Card>
+        )}
       </div>
     </div>
   );
