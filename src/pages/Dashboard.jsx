@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Circle, Plus, RefreshCw } from "lucide-react";
+import { MapPin, Circle, Plus, RefreshCw, Newspaper } from "lucide-react";
 import { format } from "date-fns";
 import { createPageUrl } from "@/utils";
 import ActivityLogger from "../components/dashboard/ActivityLogger";
@@ -67,6 +67,12 @@ export default function Dashboard() {
         5
       );
     },
+    initialData: [],
+  });
+
+  const { data: newsletters } = useQuery({
+    queryKey: ['newsletters'],
+    queryFn: () => base44.entities.Newsletter.list('-publish_date', 5),
     initialData: [],
   });
 
@@ -143,8 +149,8 @@ export default function Dashboard() {
       </div>
 
       <div className="relative z-10 px-6 pt-8 pb-32">
-        {/* Eco Score Card - Exact Match */}
-        <Card className="bg-white/10 backdrop-blur-2xl border-none shadow-2xl rounded-[2rem] p-8 mb-6 relative overflow-hidden">
+        {/* Eco Score Card - Glassmorphism */}
+        <Card className="bg-white/10 backdrop-blur-2xl border-white/20 shadow-2xl rounded-[2rem] p-8 mb-6 relative overflow-hidden">
           {/* Ripple Effects */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="absolute w-[300px] h-[300px] rounded-full border-2 border-emerald-400/20 animate-ping" style={{ animationDuration: '3s' }} />
@@ -200,7 +206,7 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold text-white">Volunteer Opportunities</h3>
             <Button
               size="sm"
-              className="bg-transparent border border-gray-600 hover:bg-white/10 text-white rounded-full px-4 py-2"
+              className="bg-transparent border border-white/20 hover:bg-white/10 text-white rounded-full px-4 py-2"
               onClick={() => window.location.href = createPageUrl('Map')}
             >
               <Plus className="w-4 h-4 mr-1" />
@@ -213,7 +219,7 @@ export default function Dashboard() {
               {upcomingActions.map((action) => (
                 <Card 
                   key={action.id} 
-                  className="bg-white/10 backdrop-blur-xl border-none rounded-2xl p-5 hover:bg-white/15 transition-all duration-300"
+                  className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-5 hover:bg-white/15 transition-all duration-300"
                 >
                   <h4 className="text-white font-semibold mb-2">{action.title}</h4>
                   <p className="text-gray-300 text-sm mb-3">{action.description}</p>
@@ -227,7 +233,7 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <Card className="bg-white/10 backdrop-blur-xl border-none rounded-[2rem] p-12 text-center">
+            <Card className="bg-white/10 backdrop-blur-xl border-white/20 rounded-[2rem] p-12 text-center">
               {/* Circular Icon */}
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center">
                 <RefreshCw className="w-10 h-10 text-gray-400" />
@@ -246,6 +252,46 @@ export default function Dashboard() {
             </Card>
           )}
         </div>
+
+        {/* Newsletter Section */}
+        {newsletters.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Newspaper className="w-5 h-5 text-[#10D9A0]" />
+              <h2 className="text-xl font-bold text-white">Environmental News</h2>
+            </div>
+
+            <div className="space-y-3">
+              {newsletters.slice(0, 3).map((newsletter) => (
+                <Card 
+                  key={newsletter.id} 
+                  className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-5 hover:bg-white/15 transition-all duration-300 cursor-pointer"
+                >
+                  <div className="flex items-start gap-4">
+                    {newsletter.image_url && (
+                      <img 
+                        src={newsletter.image_url} 
+                        alt={newsletter.title}
+                        className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <h4 className="text-white font-semibold mb-1">{newsletter.title}</h4>
+                      <p className="text-gray-300 text-sm mb-2 line-clamp-2">{newsletter.content}</p>
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span className="capitalize">{newsletter.category.replace(/_/g, ' ')}</span>
+                        <span>•</span>
+                        <span>{newsletter.location}</span>
+                        <span>•</span>
+                        <span>{format(new Date(newsletter.publish_date), 'MMM d, yyyy')}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
