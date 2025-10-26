@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from "react-leaflet";
@@ -395,17 +395,6 @@ export default function MapPage() {
     });
   };
 
-  const handleStartJourney = () => {
-    if (!userLocation) return;
-    
-    setIsTracking(true);
-    setJourneyStartTime(new Date());
-    setRouteHistory([userLocation]);
-    setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
-    setShowTransportSheet(true);
-    setShowStatsOverlay(true);
-  };
-
   const saveJourneyToDatabase = async () => {
     if (journeyStats.distance === 0) return;
 
@@ -418,7 +407,6 @@ export default function MapPage() {
     };
 
     if (todayScore) {
-      // Update existing score
       const updatedData = {
         ...todayScore,
         walking_minutes: (todayScore.walking_minutes || 0) + transportMinutes.walking_minutes,
@@ -435,7 +423,6 @@ export default function MapPage() {
         data: updatedData
       });
     } else {
-      // Create new score for today
       await createScoreMutation.mutateAsync({
         date: today,
         score: journeyStats.ecoScore,
@@ -444,6 +431,17 @@ export default function MapPage() {
         carbon_saved_kg: journeyStats.carbonSaved,
       });
     }
+  };
+
+  const handleStartJourney = () => {
+    if (!userLocation) return;
+    
+    setIsTracking(true);
+    setJourneyStartTime(new Date());
+    setRouteHistory([userLocation]);
+    setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
+    setShowTransportSheet(true);
+    setShowStatsOverlay(true);
   };
 
   const handleStopJourney = async () => {
