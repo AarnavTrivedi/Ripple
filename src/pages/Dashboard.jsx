@@ -3,14 +3,15 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Circle, Plus, Leaf } from "lucide-react";
+import { MapPin, Circle, Plus, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
+import { createPageUrl } from "@/utils";
 import ActivityLogger from "../components/dashboard/ActivityLogger";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
-  const [locationName, setLocationName] = useState("Virginia");
+  const [locationName, setLocationName] = useState("Your County, Virginia");
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -31,13 +32,12 @@ export default function Dashboard() {
               `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`
             );
             const data = await response.json();
-            setLocationName(data.address.county || data.address.city || data.address.state || "Virginia");
+            const county = data.address.county || data.address.city || "Your County";
+            const state = data.address.state || "Virginia";
+            setLocationName(`${county}, ${state}`);
           } catch (error) {
             console.error("Error getting location name:", error);
           }
-        },
-        (error) => {
-          console.error("Location error:", error);
         }
       );
     }
@@ -129,64 +129,66 @@ export default function Dashboard() {
   const score = todayScore?.score || 0;
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Leaf Background Pattern */}
-      <div className="fixed inset-0 z-0">
+    <div className="min-h-screen relative overflow-hidden bg-[#1a2f26]">
+      {/* Leaf Background */}
+      <div className="fixed inset-0 z-0 opacity-20">
         <div 
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0"
           style={{
             backgroundImage: 'url(https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=1200&q=80)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            filter: 'blur(2px)'
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0a2f23] via-[#0d3d2d] to-[#0a2f23]" />
       </div>
 
       <div className="relative z-10 px-6 pt-8 pb-32">
-        {/* Eco Score Card - Glassmorphism */}
-        <Card className="bg-white/10 backdrop-blur-xl border-white/20 shadow-2xl rounded-3xl p-8 mb-6 relative overflow-hidden">
-          {/* Ripple Effect Background */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full border-2 border-emerald-400/30 animate-ping" style={{ animationDuration: '3s' }} />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full border-2 border-emerald-400/40 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.5s' }} />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 rounded-full border-2 border-emerald-400/50 animate-ping" style={{ animationDuration: '1.5s', animationDelay: '1s' }} />
+        {/* Eco Score Card - Exact Match */}
+        <Card className="bg-white/10 backdrop-blur-2xl border-none shadow-2xl rounded-[2rem] p-8 mb-6 relative overflow-hidden">
+          {/* Ripple Effects */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute w-[300px] h-[300px] rounded-full border-2 border-emerald-400/20 animate-ping" style={{ animationDuration: '3s' }} />
+            <div className="absolute w-[240px] h-[240px] rounded-full border-2 border-emerald-400/30 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
+            <div className="absolute w-[180px] h-[180px] rounded-full border-2 border-emerald-400/40 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.6s' }} />
           </div>
 
           <div className="relative flex flex-col items-center">
-            <div className="text-9xl font-bold text-white mb-2">{score}</div>
-            <div className="text-sm text-gray-300 uppercase tracking-[0.3em] mb-6">Eco Score</div>
+            {/* Large Score Number */}
+            <div className="text-[120px] font-bold text-white leading-none mb-2">
+              {score}
+            </div>
             
-            {!todayScore && (
+            {/* ECO SCORE Label */}
+            <div className="text-sm text-gray-300 uppercase tracking-[0.25em] mb-8">
+              ECO SCORE
+            </div>
+            
+            {/* Start Tracking Button or Activity Logger */}
+            {!todayScore ? (
               <Button
                 onClick={handleStartTracking}
-                className="bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold px-12 py-6 rounded-full text-lg shadow-lg shadow-emerald-500/50 transition-all duration-300 hover:scale-105"
+                className="bg-[#10D9A0] hover:bg-[#0ec090] text-white font-semibold px-10 py-6 rounded-full text-base shadow-lg transition-all duration-300 hover:scale-105"
               >
                 Start Tracking Today
               </Button>
+            ) : (
+              <ActivityLogger 
+                onLogActivity={handleLogActivity} 
+                currentScore={score} 
+                currentActivities={todayScore} 
+              />
             )}
           </div>
         </Card>
 
-        {/* Activity Logger */}
-        {todayScore && (
-          <div className="mb-6">
-            <ActivityLogger 
-              onLogActivity={handleLogActivity} 
-              currentScore={score} 
-              currentActivities={todayScore} 
-            />
-          </div>
-        )}
-
-        {/* Events Near You */}
+        {/* Events Near You Section */}
         <div className="mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Circle className="w-3 h-3 text-emerald-400 fill-emerald-400 animate-pulse" />
+          <div className="flex items-center gap-2 mb-3">
+            <Circle className="w-2 h-2 text-[#10D9A0] fill-[#10D9A0]" />
             <h2 className="text-xl font-bold text-white">Events Near You</h2>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-300 mb-4 ml-5">
+          
+          <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
             <MapPin className="w-4 h-4" />
             <span>{locationName}</span>
           </div>
@@ -198,8 +200,8 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold text-white">Volunteer Opportunities</h3>
             <Button
               size="sm"
-              className="bg-emerald-400/80 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-full shadow-lg"
-              onClick={() => window.location.href = '/Map'}
+              className="bg-transparent border border-gray-600 hover:bg-white/10 text-white rounded-full px-4 py-2"
+              onClick={() => window.location.href = createPageUrl('Map')}
             >
               <Plus className="w-4 h-4 mr-1" />
               Add
@@ -211,73 +213,39 @@ export default function Dashboard() {
               {upcomingActions.map((action) => (
                 <Card 
                   key={action.id} 
-                  className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-5 hover:bg-white/15 transition-all duration-300"
+                  className="bg-white/10 backdrop-blur-xl border-none rounded-2xl p-5 hover:bg-white/15 transition-all duration-300"
                 >
                   <h4 className="text-white font-semibold mb-2">{action.title}</h4>
                   <p className="text-gray-300 text-sm mb-3">{action.description}</p>
                   <div className="flex items-center gap-4 text-xs text-gray-400">
                     <span>{format(new Date(action.date), 'MMM d, h:mm a')}</span>
                     {action.points_reward && (
-                      <span className="text-emerald-400">+{action.points_reward} pts</span>
+                      <span className="text-[#10D9A0]">+{action.points_reward} pts</span>
                     )}
                   </div>
                 </Card>
               ))}
             </div>
           ) : (
-            <Card className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-12 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                <Leaf className="w-8 h-8 text-emerald-400" />
+            <Card className="bg-white/10 backdrop-blur-xl border-none rounded-[2rem] p-12 text-center">
+              {/* Circular Icon */}
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center">
+                <RefreshCw className="w-10 h-10 text-gray-400" />
               </div>
-              <p className="text-gray-300 text-sm mb-6">No upcoming events nearby</p>
+              
+              <p className="text-gray-300 text-base mb-6">
+                No upcoming events nearby
+              </p>
+              
               <Button
-                className="bg-gradient-to-r from-emerald-400 to-teal-500 hover:from-emerald-500 hover:to-teal-600 text-white font-semibold px-8 py-3 rounded-full shadow-lg"
-                onClick={() => window.location.href = '/Map'}
+                className="bg-[#10D9A0] hover:bg-[#0ec090] text-white font-semibold px-8 py-6 rounded-full text-base shadow-lg transition-all duration-300"
+                onClick={() => window.location.href = createPageUrl('Map')}
               >
                 Add First Event
               </Button>
             </Card>
           )}
         </div>
-
-        {/* Today's Activity Stats */}
-        {todayScore && (
-          <div>
-            <h3 className="text-lg font-semibold text-white mb-4">Today's Impact</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-4">
-                <div className="text-gray-400 text-xs uppercase tracking-wider mb-1">Walking</div>
-                <div className="text-2xl font-bold text-white">
-                  {todayScore.walking_minutes || 0}
-                  <span className="text-sm text-gray-400 ml-1">min</span>
-                </div>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-4">
-                <div className="text-gray-400 text-xs uppercase tracking-wider mb-1">Cycling</div>
-                <div className="text-2xl font-bold text-white">
-                  {todayScore.cycling_minutes || 0}
-                  <span className="text-sm text-gray-400 ml-1">min</span>
-                </div>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-4">
-                <div className="text-gray-400 text-xs uppercase tracking-wider mb-1">CO₂ Saved</div>
-                <div className="text-2xl font-bold text-emerald-400">
-                  {todayScore.carbon_saved_kg?.toFixed(1) || 0}
-                  <span className="text-sm text-gray-400 ml-1">kg</span>
-                </div>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-4">
-                <div className="text-gray-400 text-xs uppercase tracking-wider mb-1">Actions</div>
-                <div className="text-2xl font-bold text-white">
-                  {todayScore.green_actions_completed || 0}
-                </div>
-              </Card>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

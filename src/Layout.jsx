@@ -14,7 +14,7 @@ export default function Layout({ children }) {
   ];
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#0a2f23]">
+    <div className="min-h-screen relative overflow-hidden bg-[#1a2f26]">
       <main className="relative pb-28">
         {children}
       </main>
@@ -34,13 +34,13 @@ export default function Layout({ children }) {
                 >
                   <div className={`p-2.5 rounded-xl transition-all ${
                     isActive
-                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/50' 
+                      ? 'bg-[#10D9A0] text-white shadow-lg shadow-emerald-500/50' 
                       : 'text-gray-400 hover:text-gray-600'
                   }`}>
                     <Icon className="w-5 h-5" />
                   </div>
                   <span className={`text-[9px] font-medium ${
-                    isActive ? 'text-emerald-600' : 'text-gray-400'
+                    isActive ? 'text-[#10D9A0]' : 'text-gray-400'
                   }`}>
                     {item.name}
                   </span>
