@@ -1,24 +1,11 @@
-import React from "react";
 import { Card } from "@/components/ui/card";
 import { TrendingDown, TrendingUp, Globe, MapPin } from "lucide-react";
 
-/**
- * EmissionsComparison Component
- * 
- * Displays county, national, and global emissions data with visual comparisons.
- * Designed to be integrated into Map page or Analytics page.
- * 
- * @param {Object} props
- * @param {Array} props.emissionData - Array of emission records from database
- * @param {string} props.currentLocation - User's current county/region name
- * @param {boolean} props.compact - If true, shows minimal view suitable for map overlay
- */
 const EmissionsComparison = ({ 
   emissionData = [], 
   currentLocation = "Your County",
   compact = false 
 }) => {
-  // Parse and organize emission data
   const getLatestData = () => {
     if (!emissionData || emissionData.length === 0) {
       return {
@@ -28,32 +15,31 @@ const EmissionsComparison = ({
       };
     }
 
-    // Group by region type
     const countyData = emissionData.filter(d => d.region_type === 'county');
     const nationalData = emissionData.filter(d => d.region_type === 'national');
     const globalData = emissionData.filter(d => d.region_type === 'global');
 
-    // Get latest and previous year for trend calculation
     const getLatestAndTrend = (data) => {
       if (data.length === 0) return { value: 0, trend: 0, year: new Date().getFullYear() };
       
       const sorted = data.sort((a, b) => b.year - a.year);
       const latest = sorted[0];
-      const previous = sorted[1];
-      
-      const trend = previous 
-        ? ((latest.total_emissions - previous.total_emissions) / previous.total_emissions) * 100
-        : 0;
       
       return {
-        value: latest.total_emissions,
-        trend: trend,
+        value: latest.total_emissions || latest.co2_tons || 0,
+        trend: latest.change_percentage || 0,
         year: latest.year
       };
     };
 
+    // Try to find data matching the current location, otherwise use first county
+    const locationCountyData = countyData.filter(d => 
+      d.location.toLowerCase().includes(currentLocation.toLowerCase().split(',')[0])
+    );
+    const relevantCountyData = locationCountyData.length > 0 ? locationCountyData : countyData;
+
     return {
-      county: getLatestAndTrend(countyData),
+      county: getLatestAndTrend(relevantCountyData),
       national: getLatestAndTrend(nationalData),
       global: getLatestAndTrend(globalData)
     };
@@ -61,7 +47,6 @@ const EmissionsComparison = ({
 
   const data = getLatestData();
 
-  // Calculate percentage difference from county to others
   const calculateDifference = (countyValue, compareValue) => {
     if (countyValue === 0 || compareValue === 0) return 0;
     return ((countyValue - compareValue) / compareValue) * 100;
@@ -70,9 +55,11 @@ const EmissionsComparison = ({
   const nationalDiff = calculateDifference(data.county.value, data.national.value);
   const globalDiff = calculateDifference(data.county.value, data.global.value);
 
-  // Format large numbers
   const formatEmissions = (value) => {
-    if (value >= 1000000) {
+    if (value === 0) return "No data";
+    if (value >= 1000000000) {
+      return `${(value / 1000000000).toFixed(1)}B`;
+    } else if (value >= 1000000) {
       return `${(value / 1000000).toFixed(1)}M`;
     } else if (value >= 1000) {
       return `${(value / 1000).toFixed(1)}K`;
@@ -80,7 +67,6 @@ const EmissionsComparison = ({
     return value.toFixed(0);
   };
 
-  // Compact view for map overlay
   if (compact) {
     return (
       <Card className="bg-[#0f5132]/95 backdrop-blur border-emerald-500/30 p-3">
@@ -131,7 +117,6 @@ const EmissionsComparison = ({
     );
   }
 
-  // Full view for detailed analytics
   return (
     <Card className="bg-[#0f5132]/50 border-emerald-500/20 backdrop-blur-sm p-6">
       <div className="flex items-center justify-between mb-6">
@@ -139,7 +124,6 @@ const EmissionsComparison = ({
         <span className="text-emerald-200/60 text-sm">{data.county.year} Data</span>
       </div>
 
-      {/* County Emissions */}
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-2">
           <MapPin className="w-5 h-5 text-emerald-400" />
@@ -168,7 +152,6 @@ const EmissionsComparison = ({
         </div>
       </div>
 
-      {/* National Comparison */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-white font-medium">National Average (USA)</h3>
@@ -198,7 +181,6 @@ const EmissionsComparison = ({
         </p>
       </div>
 
-      {/* Global Comparison */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -231,7 +213,6 @@ const EmissionsComparison = ({
         </p>
       </div>
 
-      {/* Action Items */}
       <div className="mt-6 pt-6 border-t border-emerald-500/20">
         <h3 className="text-white font-medium mb-3">How You Can Help</h3>
         <ul className="space-y-2 text-sm text-emerald-200/80">
@@ -258,4 +239,3 @@ const EmissionsComparison = ({
 };
 
 export default EmissionsComparison;
-

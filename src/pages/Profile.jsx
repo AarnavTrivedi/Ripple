@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -46,7 +47,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen p-6 pt-8">
+    <div className="min-h-screen p-6 pt-8 pb-32">
       {/* Header */}
       <div className="mb-8">
         <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mb-4">
@@ -70,7 +71,7 @@ export default function Profile() {
       </div>
 
       {/* Newsletter */}
-      <Card className="bg-white/15 backdrop-blur-md border-emerald-400/30 p-6 mb-4">
+      <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 mb-4">
         <div className="flex items-center gap-3 mb-4">
           <Mail className="w-5 h-5 text-emerald-400" />
           <h2 className="text-lg font-semibold text-white">Newsletter</h2>
@@ -94,9 +95,9 @@ export default function Profile() {
         {currentUser?.newsletter_subscribed && newsletters.length > 0 && (
           <div className="mt-4 space-y-2">
             {newsletters.slice(0, 3).map((newsletter) => (
-              <div key={newsletter.id} className="p-3 bg-white/10 backdrop-blur rounded-lg border border-emerald-400/20">
+              <div key={newsletter.id} className="p-3 bg-[#1e4d3a]/60 rounded-lg">
                 <h4 className="text-sm font-medium text-white">{newsletter.title}</h4>
-                <p className="text-xs text-emerald-200/70 mt-1">
+                <p className="text-xs text-emerald-200/60 mt-1">
                   {newsletter.location}
                 </p>
               </div>
@@ -106,7 +107,7 @@ export default function Profile() {
       </Card>
 
       {/* Settings */}
-      <Card className="bg-white/15 backdrop-blur-md border-emerald-400/30 p-6 mb-4">
+      <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 mb-4">
         <div className="flex items-center gap-3 mb-4">
           <Bell className="w-5 h-5 text-blue-400" />
           <h2 className="text-lg font-semibold text-white">Settings</h2>
@@ -115,7 +116,7 @@ export default function Profile() {
         <div className="space-y-3">
           <Button
             variant="outline"
-            className="w-full justify-start border-emerald-400/30 text-white hover:bg-white/10"
+            className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
           >
             <Bell className="w-4 h-4 mr-3" />
             Notifications
@@ -123,7 +124,7 @@ export default function Profile() {
           
           <Button
             variant="outline"
-            className="w-full justify-start border-emerald-400/30 text-white hover:bg-white/10"
+            className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
           >
             <User className="w-4 h-4 mr-3" />
             Edit Profile
@@ -135,7 +136,7 @@ export default function Profile() {
       <Button
         onClick={handleLogout}
         variant="outline"
-        className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
+        className="w-full border-red-500/30 bg-white/10 backdrop-blur-xl text-red-400 hover:bg-red-500/10"
       >
         <LogOut className="w-4 h-4 mr-2" />
         Logout

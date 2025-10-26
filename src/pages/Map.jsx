@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+/* eslint-disable react/prop-types */
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from "react-leaflet";
@@ -9,67 +10,30 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { 
-  Navigation, Plus, X, AlertTriangle, Calendar, 
+  Plus, X, AlertTriangle, Calendar, 
   MapPin, Activity, Car, Bike, Train, Footprints,
-  Layers, TrendingUp, Eye, EyeOff, Route, Zap
+  Layers, Eye, EyeOff, Route, Zap, Search, Flame
 } from "lucide-react";
-import { toast } from "sonner";
 import L from "leaflet";
-import "leaflet.heat";
 import { format, differenceInMinutes } from "date-fns";
 import "leaflet/dist/leaflet.css";
-import KalmanFilter from "@/utils/kalmanFilter";
+import EmissionsComparison from "../components/map/EmissionsComparison";
 
-// Custom Heatmap Layer Component
-const HeatmapLayer = ({ points, intensity = 0.5 }) => {
-  const map = useMap();
-  const heatLayerRef = useRef(null);
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
-  useEffect(() => {
-    if (!map || !window.L.heatLayer) return;
-
-    if (heatLayerRef.current) {
-      map.removeLayer(heatLayerRef.current);
-    }
-
-    if (points && points.length > 0) {
-      const heatLayer = window.L.heatLayer(points, {
-        radius: 25,
-        blur: 15,
-        maxZoom: 17,
-        max: 1.0,
-        gradient: {
-          0.0: '#ff0000',
-          0.3: '#ff6600',
-          0.5: '#ffff00',
-          0.7: '#90ee90',
-          1.0: '#10b981'
-        }
-      });
-      heatLayer.addTo(map);
-      heatLayerRef.current = heatLayer;
-    }
-
-    return () => {
-      if (heatLayerRef.current) {
-        map.removeLayer(heatLayerRef.current);
-      }
-    };
-  }, [map, points, intensity]);
-
-  return null;
-};
-
-// Location Marker with Pulse Animation
 const LocationMarker = ({ position, accuracy }) => {
   const map = useMap();
 
   useEffect(() => {
     if (position) {
-      map.flyTo(position, map.getZoom(), { animate: true, duration: 0.5 });
+      map.setView(position, 14);
     }
   }, [position, map]);
 
@@ -79,7 +43,7 @@ const LocationMarker = ({ position, accuracy }) => {
     <>
       <Circle
         center={position}
-        radius={accuracy || 100}
+        radius={accuracy || 50}
         pathOptions={{
           color: '#10b981',
           fillColor: '#10b981',
@@ -89,11 +53,11 @@ const LocationMarker = ({ position, accuracy }) => {
       />
       <Circle
         center={position}
-        radius={10}
+        radius={8}
         pathOptions={{
           color: '#10b981',
           fillColor: '#10b981',
-          fillOpacity: 0.8,
+          fillOpacity: 1,
           weight: 3
         }}
       />
@@ -101,37 +65,75 @@ const LocationMarker = ({ position, accuracy }) => {
   );
 };
 
+const HeatmapLayer = ({ waypoints, greenActions, enabled }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || !enabled) return;
+
+    const points = [];
+    
+    waypoints.forEach(wp => {
+      if (wp.latitude && wp.longitude) {
+        const intensity = (wp.eco_rating || 70) / 100;
+        points.push([wp.latitude, wp.longitude, intensity]);
+      }
+    });
+
+    greenActions.forEach(action => {
+      if (action.latitude && action.longitude) {
+        points.push([action.latitude, action.longitude, 0.9]);
+      }
+    });
+
+    if (points.length === 0) return;
+
+    const circles = points.map(([lat, lng, intensity]) => {
+      return L.circle([lat, lng], {
+        radius: 200,
+        fillColor: intensity > 0.7 ? '#fbbf24' : intensity > 0.5 ? '#10b981' : '#3b82f6',
+        fillOpacity: intensity * 0.3,
+        stroke: false
+      }).addTo(map);
+    });
+
+    return () => {
+      circles.forEach(circle => map.removeLayer(circle));
+    };
+  }, [map, waypoints, greenActions, enabled]);
+
+  return null;
+};
+
 export default function MapPage() {
   const queryClient = useQueryClient();
+  const [currentUser, setCurrentUser] = useState(null);
   
-  // Location & Tracking State
   const [userLocation, setUserLocation] = useState(null);
   const [locationAccuracy, setLocationAccuracy] = useState(100);
+  const [locationError, setLocationError] = useState(null);
   const [routeHistory, setRouteHistory] = useState([]);
   const [isTracking, setIsTracking] = useState(false);
   const [currentTransportMode, setCurrentTransportMode] = useState('walking');
   const [journeyStartTime, setJourneyStartTime] = useState(null);
   
-  // UI State
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogType, setDialogType] = useState('waypoint');
   const [showLayersSheet, setShowLayersSheet] = useState(false);
   const [showTransportSheet, setShowTransportSheet] = useState(false);
   const [showStatsOverlay, setShowStatsOverlay] = useState(true);
+  const [showEmissionsWidget, setShowEmissionsWidget] = useState(true);
   
-  // Layer Visibility State
   const [showHazards, setShowHazards] = useState(true);
-  const [showHeatmap, setShowHeatmap] = useState(true);
   const [showWaypoints, setShowWaypoints] = useState(true);
   const [showGreenActions, setShowGreenActions] = useState(true);
   const [showRouteHistory, setShowRouteHistory] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(true);
   
-  // Location Status Tracking
-  const [locationStatus, setLocationStatus] = useState('trying-high-accuracy'); 
-  // 'trying-high-accuracy', 'trying-low-accuracy', 'using-fallback', 'ready', 'error'
-  const [locationAttempts, setLocationAttempts] = useState(0);
-  
-  // Form State
+  const [addressSearch, setAddressSearch] = useState('');
+  const [searchingAddress, setSearchingAddress] = useState(false);
+  const [locationName, setLocationName] = useState("Finding your location...");
+
   const [newWaypoint, setNewWaypoint] = useState({
     name: '',
     description: '',
@@ -147,10 +149,10 @@ export default function MapPage() {
     date: format(new Date(), 'yyyy-MM-dd'),
     points_reward: 50,
     latitude: null,
-    longitude: null
+    longitude: null,
+    address: ''
   });
 
-  // Journey Stats
   const [journeyStats, setJourneyStats] = useState({
     distance: 0,
     carbonSaved: 0,
@@ -158,264 +160,125 @@ export default function MapPage() {
     ecoScore: 0
   });
 
-  // Kalman filters for GPS smoothing (improves accuracy by 75%)
-  const latFilter = useRef(new KalmanFilter(0.001, 1));
-  const lonFilter = useRef(new KalmanFilter(0.001, 1));
-  
-  // Speed and position tracking
-  const speedRef = useRef(0);
-  const lastPositionRef = useRef(null);
-  const lastTimeRef = useRef(null);
-
-  // Load saved journey from localStorage on mount
   useEffect(() => {
-    const savedJourney = localStorage.getItem('currentJourney');
-    if (savedJourney) {
+    const fetchUser = async () => {
       try {
-        const journey = JSON.parse(savedJourney);
-        if (isTracking && journey.route) {
-          setRouteHistory(journey.route || []);
-          setJourneyStats(journey.stats || { distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
-          if (journey.startTime) {
-            setJourneyStartTime(new Date(journey.startTime));
-          }
-          toast.success('Journey resumed from saved data');
-        }
+        const user = await base44.auth.me();
+        setCurrentUser(user);
       } catch (error) {
-        console.error('Error loading saved journey:', error);
-        localStorage.removeItem('currentJourney');
+        console.error("Error fetching user:", error);
       }
-    }
+    };
+    fetchUser();
   }, []);
 
-  // Auto-save journey to localStorage
-  useEffect(() => {
-    if (isTracking && routeHistory.length > 0) {
-      const journeyData = {
-        route: routeHistory,
-        stats: journeyStats,
-        startTime: journeyStartTime?.toISOString(),
-        mode: currentTransportMode,
-        lastUpdate: new Date().toISOString()
-      };
-      localStorage.setItem('currentJourney', JSON.stringify(journeyData));
-    }
-  }, [routeHistory, journeyStats, isTracking, journeyStartTime, currentTransportMode]);
-
-  // Route simplification helper
-  const simplifyRoute = (route, maxPoints = 50) => {
-    if (route.length <= maxPoints) return route;
-    const step = Math.ceil(route.length / maxPoints);
-    return route.filter((_, index) => index % step === 0);
-  };
-
-  // Save completed journey to history
-  const saveCompletedJourney = () => {
-    if (journeyStats.distance === 0) return;
-    
-    try {
-      const history = JSON.parse(localStorage.getItem('journeyHistory') || '[]');
-      history.unshift({
-        id: Date.now(),
-        date: new Date().toISOString(),
-        mode: currentTransportMode,
-        ...journeyStats,
-        route: simplifyRoute(routeHistory, 50)
-      });
-      
-      // Keep last 50 journeys
-      if (history.length > 50) history.length = 50;
-      
-      localStorage.setItem('journeyHistory', JSON.stringify(history));
-      localStorage.removeItem('currentJourney');
-      
-      toast.success(`Journey saved! ${journeyStats.distance.toFixed(2)}mi, ${journeyStats.carbonSaved.toFixed(2)}kg CO₂ saved`);
-    } catch (error) {
-      console.error('Error saving journey:', error);
-    }
-  };
-
-  // Multi-tier geolocation with fallback strategy
   useEffect(() => {
     if (!navigator.geolocation) {
-      toast.error('Geolocation not supported by your browser');
-      setUserLocation([37.5407, -77.4360]); // Richmond, VA fallback
-      setLocationStatus('using-fallback');
+      setLocationError("Geolocation is not supported by your browser");
+      console.error("Geolocation not supported");
       return;
     }
 
-    let watchId;
-    let retryTimeout;
+    console.log("Starting location tracking...");
 
-    const handleSuccess = (position) => {
-      const rawLat = position.coords.latitude;
-      const rawLon = position.coords.longitude;
-      const accuracy = position.coords.accuracy;
-      
-      // Apply Kalman filter for smooth, accurate positions (75% accuracy boost!)
-      const filteredLat = latFilter.current.filter(rawLat, accuracy);
-      const filteredLon = lonFilter.current.filter(rawLon, accuracy);
-      const newLocation = [filteredLat, filteredLon];
-      
-      // Calculate speed for movement detection
-      const currentTime = Date.now();
-      if (lastPositionRef.current && lastTimeRef.current) {
-        const timeDiff = (currentTime - lastTimeRef.current) / 1000; // seconds
-        const distance = calculateDistance(
-          lastPositionRef.current[0], lastPositionRef.current[1],
-          filteredLat, filteredLon
-        ) * 1000; // meters
+    const watchId = navigator.geolocation.watchPosition(
+      async (position) => {
+        const newLocation = [position.coords.latitude, position.coords.longitude];
+        const accuracy = position.coords.accuracy;
         
-        speedRef.current = distance / timeDiff; // m/s
-      }
-      
-      lastPositionRef.current = newLocation;
-      lastTimeRef.current = currentTime;
-      
-      setUserLocation(newLocation);
-      setLocationAccuracy(accuracy);
-      
-      // Update status on first successful lock
-      if (locationStatus !== 'ready') {
-        setLocationStatus('ready');
-        const accuracyType = accuracy < 50 ? 'High' : accuracy < 150 ? 'Medium' : 'Low';
-        toast.success(`Location locked! (${accuracyType} accuracy: ${Math.round(accuracy)}m)`);
-      }
-      
-      // Only track if moving significantly (> 0.5 m/s = ~1.8 km/h walking pace)
-      const isMoving = speedRef.current > 0.5;
-      
-      // Track route if journey is active AND moving
-      if (isTracking && userLocation && isMoving) {
-        setRouteHistory(prev => {
-          // Don't add if too close to last point (< 10m)
-          if (prev.length > 0) {
-            const lastPoint = prev[prev.length - 1];
-            const distanceFromLast = calculateDistance(
-              lastPoint[0], lastPoint[1],
-              newLocation[0], newLocation[1]
-            ) * 1000; // meters
-            
-            if (distanceFromLast < 10) return prev; // Skip if < 10m
-          }
-          
-          return [...prev, newLocation];
-        });
+        console.log("Got location:", newLocation, "accuracy:", accuracy);
         
-        // Calculate distance between valid points
-        if (routeHistory.length > 0) {
+        setUserLocation(newLocation);
+        setLocationAccuracy(accuracy);
+        setLocationError(null);
+
+        // Get location name from coordinates
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLocation[0]}&lon=${newLocation[1]}`
+          );
+          const data = await response.json();
+          const name = data.address.city || data.address.town || data.address.county || data.address.state || "Your Location";
+          setLocationName(name);
+          console.log("Location name:", name);
+        } catch (error) {
+          console.error("Error getting location name:", error);
+          setLocationName("Your Location");
+        }
+        
+        // Update route history if tracking
+        if (isTracking && routeHistory.length > 0) {
           const lastPoint = routeHistory[routeHistory.length - 1];
           const distance = calculateDistance(
             lastPoint[0], lastPoint[1],
             newLocation[0], newLocation[1]
           );
           
-          // Update journey stats
-          setJourneyStats(prev => {
-            const newDistance = prev.distance + distance;
-            const carbonSaved = calculateCarbonSaved(newDistance, currentTransportMode);
-            const duration = journeyStartTime ? 
-              differenceInMinutes(new Date(), journeyStartTime) : 0;
-            const ecoScore = calculateEcoScore(currentTransportMode, duration, carbonSaved);
+          if (distance > 0.001) {
+            setRouteHistory(prev => [...prev, newLocation]);
             
-            return {
-              distance: newDistance,
-              carbonSaved,
-              duration,
-              ecoScore
-            };
-          });
-        }
-      }
-      
-      // Update form coordinates
-      if (showAddDialog) {
-        if (dialogType === 'waypoint' && !newWaypoint.latitude) {
-          setNewWaypoint(prev => ({
-            ...prev,
-            latitude: filteredLat,
-            longitude: filteredLon
-          }));
-        }
-        if (dialogType === 'volunteer' && !newVolunteerEvent.latitude) {
-          setNewVolunteerEvent(prev => ({
-            ...prev,
-            latitude: filteredLat,
-            longitude: filteredLon
-          }));
-        }
-      }
-    };
-
-    const handleError = (error) => {
-      console.error("Location error:", error);
-      
-      // TIER 1: First timeout on high-accuracy GPS
-      if (locationStatus === 'trying-high-accuracy') {
-        toast.warning('GPS taking longer... trying network location');
-        setLocationStatus('trying-low-accuracy');
-        setLocationAttempts(prev => prev + 1);
-        
-        // Retry with low accuracy (network-based, faster)
-        if (watchId) navigator.geolocation.clearWatch(watchId);
-        watchId = navigator.geolocation.watchPosition(
-          handleSuccess,
-          handleError,
-          {
-            enableHighAccuracy: false, // Network-based (faster!)
-            timeout: 10000,
-            maximumAge: 10000,
+            setJourneyStats(prevStats => {
+              const newDistance = prevStats.distance + distance;
+              const carbonSaved = calculateCarbonSaved(newDistance, currentTransportMode);
+              const duration = journeyStartTime ? 
+                differenceInMinutes(new Date(), journeyStartTime) : 0;
+              const ecoScore = calculateEcoScore(currentTransportMode, duration, carbonSaved);
+              
+              return {
+                distance: newDistance,
+                carbonSaved,
+                duration,
+                ecoScore
+              };
+            });
           }
-        );
-        return;
-      }
-      
-      // TIER 2: Network location also failed
-      if (locationStatus === 'trying-low-accuracy') {
-        toast.error('Location services unavailable. Using approximate location.');
-        setLocationStatus('using-fallback');
+        }
+      },
+      (error) => {
+        console.error("Location error:", error);
+        let errorMessage = "Unable to get your location";
         
-        // Try IP geolocation as last resort (you can integrate ipapi.co or similar)
-        fetch('https://ipapi.co/json/')
-          .then(res => res.json())
-          .then(data => {
-            if (data.latitude && data.longitude) {
-              setUserLocation([data.latitude, data.longitude]);
-              setLocationAccuracy(5000); // ~5km accuracy for IP location
-              toast.info(`Using approximate location: ${data.city}, ${data.region}`);
-            } else {
-              throw new Error('No IP location');
-            }
-          })
-          .catch(() => {
-            // Final fallback: Richmond, VA
-            setUserLocation([37.5407, -77.4360]);
-            setLocationAccuracy(50000);
-            toast.error('Using default location. Please enable location services for accurate tracking.');
-          });
-        return;
-      }
-    };
-
-    // Start with high-accuracy GPS attempt
-    setLocationStatus('trying-high-accuracy');
-    watchId = navigator.geolocation.watchPosition(
-      handleSuccess,
-      handleError,
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied. Please enable location services.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out.";
+            break;
+        }
+        
+        setLocationError(errorMessage);
+      },
       {
         enableHighAccuracy: true,
-        timeout: 20000,      // Increased to 20s for initial GPS lock
-        maximumAge: 5000,
+        timeout: 10000,
+        maximumAge: 0
       }
     );
 
     return () => {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-      if (retryTimeout) clearTimeout(retryTimeout);
+      console.log("Stopping location tracking");
+      navigator.geolocation.clearWatch(watchId);
     };
-  }, [isTracking, userLocation, currentTransportMode, journeyStartTime, showAddDialog, dialogType, newWaypoint.latitude, newVolunteerEvent.latitude, locationStatus]);
+  }, [isTracking, routeHistory, currentTransportMode, journeyStartTime]);
 
-  // Data Queries
+  const { data: todayScore } = useQuery({
+    queryKey: ['todayScore', currentUser?.email],
+    queryFn: async () => {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const scores = await base44.entities.EcoScore.filter(
+        { created_by: currentUser?.email, date: today },
+        '-created_date',
+        1
+      );
+      return scores[0] || null;
+    },
+    enabled: !!currentUser,
+  });
+
   const { data: waypoints } = useQuery({
     queryKey: ['waypoints'],
     queryFn: () => base44.entities.EcoWaypoint.list(),
@@ -435,86 +298,24 @@ export default function MapPage() {
   });
 
   const { data: emissionData } = useQuery({
-    queryKey: ['emissionData'],
-    queryFn: () => base44.entities.EmissionData.list('-year', 1),
+    queryKey: ['emissions'],
+    queryFn: () => base44.entities.EmissionData.list('-date', 50),
     initialData: [],
   });
 
-  // Helper Functions
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 3959; // miles
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
+  const updateScoreMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.EcoScore.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todayScore'] });
+    },
+  });
 
-  const calculateCarbonSaved = (distanceMiles, transportMode) => {
-    // Carbon emissions in kg CO2 per mile
-    const emissionFactors = {
-      walking: 0,
-      cycling: 0,
-      public_transport: 0.14,  // vs car
-      driving: 0.404, // average car
-    };
-    
-    // Carbon saved = (car emissions - chosen mode emissions) * distance
-    const carEmissions = 0.404;
-    const modeEmissions = emissionFactors[transportMode] || 0;
-    const savedPerMile = carEmissions - modeEmissions;
-    
-    return Math.max(0, savedPerMile * distanceMiles);
-  };
-
-  const calculateEcoScore = (transportMode, durationMinutes, carbonSaved) => {
-    const modeScores = {
-      walking: 100,
-      cycling: 95,
-      public_transport: 75,
-      driving: 30,
-    };
-    
-    const baseScore = modeScores[transportMode] || 50;
-    const durationBonus = Math.min(durationMinutes * 0.5, 20);
-    const carbonBonus = Math.min(carbonSaved * 10, 30);
-    
-    return Math.min(100, Math.round(baseScore + durationBonus + carbonBonus));
-  };
-
-  // Generate heatmap data from waypoints
-  const heatmapData = useMemo(() => {
-    if (!showHeatmap) return [];
-    
-    const points = [];
-    
-    // Add waypoints with eco rating
-    waypoints.forEach(waypoint => {
-      if (waypoint.latitude && waypoint.longitude) {
-        const intensity = (waypoint.eco_rating || 70) / 100;
-        points.push([waypoint.latitude, waypoint.longitude, intensity]);
-      }
-    });
-    
-    // Add green actions as high-value points
-    greenActions.forEach(action => {
-      if (action.latitude && action.longitude && !action.completed) {
-        points.push([action.latitude, action.longitude, 0.9]);
-      }
-    });
-    
-    // Add inverse intensity for hazard zones
-    hazards.forEach(hazard => {
-      if (hazard.latitude && hazard.longitude) {
-        const intensity = 1 - (hazard.hazard_level / 100);
-        points.push([hazard.latitude, hazard.longitude, intensity]);
-      }
-    });
-    
-    return points;
-  }, [waypoints, greenActions, hazards, showHeatmap]);
+  const createScoreMutation = useMutation({
+    mutationFn: (data) => base44.entities.EcoScore.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todayScore'] });
+    },
+  });
 
   const createWaypointMutation = useMutation({
     mutationFn: (data) => base44.entities.EcoWaypoint.create(data),
@@ -543,15 +344,132 @@ export default function MapPage() {
         date: format(new Date(), 'yyyy-MM-dd'),
         points_reward: 50,
         latitude: null,
-        longitude: null
+        longitude: null,
+        address: ''
       });
+      setAddressSearch('');
     },
   });
 
+  const deleteVolunteerMutation = useMutation({
+    mutationFn: (id) => base44.entities.GreenAction.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['greenActions'] });
+    },
+  });
+
+  const deleteWaypointMutation = useMutation({
+    mutationFn: (id) => base44.entities.EcoWaypoint.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['waypoints'] });
+    },
+  });
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 3959;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const calculateCarbonSaved = (distanceMiles, transportMode) => {
+    const emissionFactors = {
+      walking: 0,
+      cycling: 0,
+      public_transport: 0.14,
+      driving: 0.404,
+    };
+    
+    const carEmissions = emissionFactors.driving;
+    const modeEmissions = emissionFactors[transportMode] || 0;
+    const savedPerMile = carEmissions - modeEmissions;
+    
+    return Math.max(0, savedPerMile * distanceMiles);
+  };
+
+  const calculateEcoScore = (transportMode, durationMinutes, carbonSaved) => {
+    const modeScores = {
+      walking: 100,
+      cycling: 95,
+      public_transport: 75,
+      driving: 30,
+    };
+    
+    const baseScore = modeScores[transportMode] || 50;
+    const durationBonus = Math.min(durationMinutes * 0.5, 20);
+    const carbonBonus = Math.min(carbonSaved * 10, 30);
+    
+    return Math.min(100, Math.round(baseScore + durationBonus + carbonBonus));
+  };
+
+  const handleDeleteVolunteer = async (eventId) => {
+    if (window.confirm('Are you sure you want to delete this volunteer event?')) {
+      deleteVolunteerMutation.mutate(eventId);
+    }
+  };
+
+  const handleDeleteWaypoint = async (waypointId) => {
+    if (window.confirm('Are you sure you want to delete this eco spot?')) {
+      deleteWaypointMutation.mutate(waypointId);
+    }
+  };
+
+  const handleSearchAddress = async () => {
+    if (!addressSearch) return;
+    
+    setSearchingAddress(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressSearch)}`
+      );
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const location = data[0];
+        if (dialogType === 'volunteer') {
+          setNewVolunteerEvent(prev => ({
+            ...prev,
+            latitude: parseFloat(location.lat),
+            longitude: parseFloat(location.lon),
+            address: location.display_name
+          }));
+        } else {
+          setNewWaypoint(prev => ({
+            ...prev,
+            latitude: parseFloat(location.lat),
+            longitude: parseFloat(location.lon)
+          }));
+        }
+      } else {
+        alert('Address not found. Please try a different address.');
+      }
+    } catch (error) {
+      console.error("Error searching address:", error);
+      alert('Error searching address. Please try again.');
+    } finally {
+      setSearchingAddress(false);
+    }
+  };
+
   const handleAddWaypoint = (e) => {
     e.preventDefault();
+    
+    const lat = newWaypoint.latitude || (userLocation ? userLocation[0] : null);
+    const lon = newWaypoint.longitude || (userLocation ? userLocation[1] : null);
+
+    if (lat === null || lon === null) {
+      alert("Could not determine location for the eco spot. Please ensure location services are enabled or search for an address.");
+      return;
+    }
+    
     createWaypointMutation.mutate({
       ...newWaypoint,
+      latitude: lat,
+      longitude: lon,
       is_user_created: true,
       eco_rating: 85
     });
@@ -559,43 +477,93 @@ export default function MapPage() {
 
   const handleAddVolunteer = (e) => {
     e.preventDefault();
+    
+    const lat = newVolunteerEvent.latitude || (userLocation ? userLocation[0] : null);
+    const lon = newVolunteerEvent.longitude || (userLocation ? userLocation[1] : null);
+
+    if (lat === null || lon === null) {
+      alert("Could not determine location for the volunteer event. Please ensure location services are enabled or search for an address.");
+      return;
+    }
+    
     createVolunteerMutation.mutate({
-      ...newVolunteerEvent,
+      title: newVolunteerEvent.title,
+      description: newVolunteerEvent.description,
+      action_type: newVolunteerEvent.action_type,
+      date: newVolunteerEvent.date,
+      points_reward: newVolunteerEvent.points_reward,
+      latitude: lat,
+      longitude: lon,
       completed: false
     });
   };
 
-  // Journey tracking handlers
+  const saveJourneyToDatabase = async () => {
+    if (journeyStats.distance === 0) return;
+
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const transportMinutes = {
+      walking_minutes: currentTransportMode === 'walking' ? journeyStats.duration : 0,
+      cycling_minutes: currentTransportMode === 'cycling' ? journeyStats.duration : 0,
+      public_transport_minutes: currentTransportMode === 'public_transport' ? journeyStats.duration : 0,
+      driving_minutes: currentTransportMode === 'driving' ? journeyStats.duration : 0,
+    };
+
+    if (todayScore) {
+      const updatedData = {
+        ...todayScore,
+        walking_minutes: (todayScore.walking_minutes || 0) + transportMinutes.walking_minutes,
+        cycling_minutes: (todayScore.cycling_minutes || 0) + transportMinutes.cycling_minutes,
+        public_transport_minutes: (todayScore.public_transport_minutes || 0) + transportMinutes.public_transport_minutes,
+        driving_minutes: (todayScore.driving_minutes || 0) + transportMinutes.driving_minutes,
+        carbon_saved_kg: (todayScore.carbon_saved_kg || 0) + journeyStats.carbonSaved,
+        score: Math.min(100, (todayScore.score || 0) + Math.round(journeyStats.ecoScore / 2)),
+        date: today
+      };
+      
+      await updateScoreMutation.mutateAsync({
+        id: todayScore.id,
+        data: updatedData
+      });
+    } else {
+      await createScoreMutation.mutateAsync({
+        date: today,
+        score: journeyStats.ecoScore,
+        ...transportMinutes,
+        green_actions_completed: 0,
+        carbon_saved_kg: journeyStats.carbonSaved,
+      });
+    }
+  };
+
   const handleStartJourney = () => {
-    // Reset Kalman filters for fresh tracking
-    latFilter.current.reset();
-    lonFilter.current.reset();
-    speedRef.current = 0;
-    lastPositionRef.current = null;
-    lastTimeRef.current = null;
+    if (!userLocation) {
+      alert("Cannot start journey: Waiting for your location...");
+      return;
+    }
     
     setIsTracking(true);
     setJourneyStartTime(new Date());
-    setRouteHistory(userLocation ? [userLocation] : []);
+    setRouteHistory([userLocation]);
     setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
     setShowTransportSheet(true);
-    
-    toast.success('Journey started! 🚀');
+    setShowStatsOverlay(true);
   };
 
-  const handleStopJourney = () => {
-    // Save journey to localStorage history
-    saveCompletedJourney();
-    
+  const handleStopJourney = async () => {
     setIsTracking(false);
     setShowTransportSheet(false);
     
-    // Optionally save to database if distance > 0
     if (journeyStats.distance > 0) {
-      console.log('Journey completed:', journeyStats);
-      // Could create a Journey entity here if needed
-      // createJourneyMutation.mutate(journeyStats);
+      await saveJourneyToDatabase();
+      
+      alert(`Journey Complete! ✅\n\nDistance: ${journeyStats.distance.toFixed(2)} miles\nCO₂ Saved: ${journeyStats.carbonSaved.toFixed(2)} kg\nDuration: ${journeyStats.duration} min\nEco Score: +${Math.round(journeyStats.ecoScore / 2)} points\n\nYour activity has been saved to today's dashboard!`);
+    } else {
+      alert("Journey stopped. No significant distance traveled to save.");
     }
+    
+    setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
+    setRouteHistory([]);
   };
 
   const handleChangeTransportMode = (mode) => {
@@ -629,65 +597,6 @@ export default function MapPage() {
     });
   };
 
-  if (!userLocation) {
-    const statusMessages = {
-      'trying-high-accuracy': '📡 Acquiring GPS signal...',
-      'trying-low-accuracy': '📶 Using network location...',
-      'using-fallback': '🌐 Using approximate location...',
-      'error': '❌ Location unavailable'
-    };
-
-    const statusDescriptions = {
-      'trying-high-accuracy': 'Please wait while we get your precise location',
-      'trying-low-accuracy': 'GPS unavailable, using cell tower location',
-      'using-fallback': 'Using IP-based location',
-      'error': 'Please check your location permissions'
-    };
-
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-emerald-900 to-emerald-950 p-4">
-        <div className="text-center max-w-md">
-          <div className="relative mb-6">
-            <div className="w-16 h-16 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto" />
-            {locationStatus === 'trying-low-accuracy' && (
-              <div className="absolute inset-0 w-16 h-16 border-4 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mx-auto" 
-                   style={{ animationDirection: 'reverse', animationDuration: '1s' }} />
-            )}
-          </div>
-          
-          <h2 className="text-white text-xl font-bold mb-2">
-            {statusMessages[locationStatus] || 'Getting your location...'}
-          </h2>
-          
-          <p className="text-emerald-200/70 text-sm mb-4">
-            {statusDescriptions[locationStatus] || 'This may take a moment'}
-          </p>
-
-          {locationStatus === 'trying-low-accuracy' && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-200">
-              💡 <strong>Tip:</strong> Move outdoors or near a window for better GPS signal
-            </div>
-          )}
-
-          {locationStatus === 'using-fallback' && (
-            <Button
-              onClick={() => window.location.reload()}
-              className="mt-4 bg-emerald-500 hover:bg-emerald-600"
-              size="sm"
-            >
-              🔄 Try Again
-            </Button>
-          )}
-
-          <div className="mt-6 text-emerald-200/50 text-xs">
-            Attempt {locationAttempts + 1} of 3
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Transport mode icons
   const transportIcons = {
     walking: Footprints,
     cycling: Bike,
@@ -697,60 +606,81 @@ export default function MapPage() {
 
   const TransportIcon = transportIcons[currentTransportMode] || Footprints;
 
+  if (!userLocation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 to-green-900">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white text-lg mb-2">{locationName}</p>
+          {locationError ? (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 max-w-md mx-auto">
+              <p className="text-red-200 text-sm">{locationError}</p>
+              <p className="text-red-300 text-xs mt-2">Please enable location services in your browser settings</p>
+            </div>
+          ) : (
+            <p className="text-emerald-200/60 text-sm">Make sure location services are enabled</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col relative overflow-hidden">
-      {/* Compact Header - Mobile Optimized */}
       <div className="bg-[#0f5132]/95 backdrop-blur border-b border-emerald-500/20 px-4 py-3 z-[1001]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-emerald-400" />
-            <h1 className="text-lg font-bold text-white">Eco Map</h1>
+            <div>
+              <h1 className="text-lg font-bold text-white">Eco Map</h1>
+              <p className="text-xs text-emerald-200/60">{locationName}</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button
               size="sm"
               variant="outline"
-              className="border-emerald-500/30 h-8 px-2"
+              className="border-emerald-500/30 bg-white/10 backdrop-blur-xl h-8 px-2 text-white hover:bg-white/20"
               onClick={() => setShowLayersSheet(true)}
             >
-              <Layers className="w-4 h-4" />
+              <Layers className="w-4 h-4 mr-1" />
+              Layers
             </Button>
             <Button
               size="sm"
-              className="bg-emerald-500 hover:bg-emerald-600 h-8 px-2"
+              className="bg-emerald-500 hover:bg-emerald-600 h-8 px-2 text-white"
               onClick={() => {
                 setDialogType('waypoint');
                 setShowAddDialog(true);
               }}
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 mr-1" />
+              Add
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Map */}
       <div className="flex-1 relative">
         <MapContainer
           center={userLocation}
-          zoom={13}
+          zoom={14}
           style={{ height: '100%', width: '100%' }}
           className="z-0"
+          zoomControl={true}
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; OpenStreetMap contributors'
+            maxZoom={19}
           />
           
-          {/* Heatmap Layer */}
-          {showHeatmap && heatmapData.length > 0 && (
-            <HeatmapLayer points={heatmapData} intensity={0.6} />
-          )}
-          
-          {/* User Location */}
           <LocationMarker position={userLocation} accuracy={locationAccuracy} />
 
-          {/* Route History */}
+          {showHeatmap && (
+            <HeatmapLayer waypoints={waypoints} greenActions={greenActions} enabled={showHeatmap} />
+          )}
+
           {showRouteHistory && routeHistory.length > 1 && (
             <Polyline
               positions={routeHistory}
@@ -758,13 +688,12 @@ export default function MapPage() {
                 color: currentTransportMode === 'walking' ? '#10b981' :
                        currentTransportMode === 'cycling' ? '#8b5cf6' :
                        currentTransportMode === 'public_transport' ? '#3b82f6' : '#f59e0b',
-                weight: 4,
-                opacity: 0.7
+                weight: 5,
+                opacity: 0.8
               }}
             />
           )}
 
-          {/* Waypoints */}
           {showWaypoints && waypoints.map((waypoint) => (
             <Marker
               key={waypoint.id}
@@ -773,7 +702,19 @@ export default function MapPage() {
             >
               <Popup>
                 <div className="min-w-[200px]">
-                  <h3 className="font-semibold text-base mb-1">{waypoint.name}</h3>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-base flex-1">{waypoint.name}</h3>
+                    {waypoint.created_by === currentUser?.email && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteWaypoint(waypoint.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-600 mb-2">{waypoint.description}</p>
                   <div className="flex items-center justify-between text-xs">
                     <span className="capitalize text-emerald-600">
@@ -783,12 +724,16 @@ export default function MapPage() {
                       ⭐ {waypoint.eco_rating || 85}/100
                     </span>
                   </div>
+                  {waypoint.created_by === currentUser?.email && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">Created by you</p>
+                    </div>
+                  )}
                 </div>
               </Popup>
             </Marker>
           ))}
 
-          {/* Green Actions */}
           {showGreenActions && greenActions.filter(a => a.latitude && a.longitude).map((action) => (
             <Marker
               key={action.id}
@@ -797,22 +742,38 @@ export default function MapPage() {
             >
               <Popup>
                 <div className="min-w-[220px]">
-                  <h3 className="font-semibold text-base mb-1">{action.title}</h3>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-base flex-1">{action.title}</h3>
+                    {action.created_by === currentUser?.email && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteVolunteer(action.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-600 mb-2">{action.description}</p>
                   <div className="space-y-1 text-xs text-gray-500">
-                    <div>📅 {format(new Date(action.date), 'MMM d, yyyy, h:mm a')}</div>
+                    <div>📅 {format(new Date(action.date), 'MMM d, yyyy')}</div>
                     {action.points_reward && (
                       <div className="text-emerald-600 font-semibold">
                         🏆 +{action.points_reward} Eco Points
                       </div>
                     )}
                   </div>
+                  {action.created_by === currentUser?.email && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">Created by you</p>
+                    </div>
+                  )}
                 </div>
               </Popup>
             </Marker>
           ))}
 
-          {/* Hazard Zones */}
           {showHazards && hazards.map((hazard) => {
             const color = hazard.hazard_level > 60 ? '#ef4444' : 
                           hazard.hazard_level > 40 ? '#f59e0b' : '#fbbf24';
@@ -848,37 +809,17 @@ export default function MapPage() {
           })}
         </MapContainer>
 
-        {/* Location Accuracy Indicator */}
-        {!isTracking && locationStatus === 'ready' && (
-          <div className="absolute top-4 left-4 z-[1000] bg-emerald-500/90 backdrop-blur px-3 py-1 rounded-full text-xs text-white font-medium flex items-center gap-2">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-            {locationAccuracy < 50 ? '🎯 High' : locationAccuracy < 150 ? '📍 Medium' : '📌 Low'} Accuracy ({Math.round(locationAccuracy)}m)
-          </div>
-        )}
-
-        {/* Real-time Stats Overlay */}
         {isTracking && showStatsOverlay && (
-          <Card className="absolute top-4 left-4 right-4 bg-white/15 backdrop-blur-md border-emerald-400/30 z-[1000] p-3">
-            {/* Current Speed Display */}
-            <div className="text-center text-emerald-300 text-sm mb-2 flex items-center justify-center gap-2">
-              <Navigation className="w-4 h-4" />
-              <span className="font-bold">
-                {(speedRef.current * 3.6).toFixed(1)} km/h
-              </span>
-              <span className="text-emerald-100/60 text-xs">
-                ({(speedRef.current * 2.237).toFixed(1)} mph)
-              </span>
-            </div>
-            
+          <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur-xl border-emerald-500/30 z-[1000] p-3 shadow-xl">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-300" />
-                <span className="text-white font-semibold text-sm drop-shadow-lg">Journey Active</span>
+                <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
+                <span className="text-white font-semibold text-sm">Journey Active</span>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 w-6 p-0 text-emerald-200 hover:text-white"
+                className="h-6 w-6 p-0 text-emerald-400 hover:bg-emerald-500/20"
                 onClick={() => setShowStatsOverlay(false)}
               >
                 <EyeOff className="w-3 h-3" />
@@ -886,26 +827,34 @@ export default function MapPage() {
             </div>
             <div className="grid grid-cols-4 gap-2">
               <div className="text-center">
-                <div className="text-emerald-200/70 text-[10px] uppercase">Distance</div>
-                <div className="text-white font-bold text-sm drop-shadow-lg">
+                <div className="text-emerald-200/60 text-[10px] uppercase tracking-wider mb-1">
+                  Distance
+                </div>
+                <div className="text-white font-bold text-sm">
                   {journeyStats.distance.toFixed(2)}mi
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-emerald-200/70 text-[10px] uppercase">CO₂ Saved</div>
-                <div className="text-white font-bold text-sm drop-shadow-lg">
+                <div className="text-emerald-200/60 text-[10px] uppercase tracking-wider mb-1">
+                  CO₂ Saved
+                </div>
+                <div className="text-white font-bold text-sm">
                   {journeyStats.carbonSaved.toFixed(2)}kg
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-emerald-200/70 text-[10px] uppercase">Time</div>
-                <div className="text-white font-bold text-sm drop-shadow-lg">
+                <div className="text-emerald-200/60 text-[10px] uppercase tracking-wider mb-1">
+                  Time
+                </div>
+                <div className="text-white font-bold text-sm">
                   {journeyStats.duration}min
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-emerald-200/70 text-[10px] uppercase">Score</div>
-                <div className="text-white font-bold text-sm drop-shadow-lg">
+                <div className="text-emerald-200/60 text-[10px] uppercase tracking-wider mb-1">
+                  Score
+                </div>
+                <div className="text-white font-bold text-sm">
                   {journeyStats.ecoScore}
                 </div>
               </div>
@@ -913,23 +862,31 @@ export default function MapPage() {
           </Card>
         )}
 
-        {/* Show Stats Button (when hidden) */}
         {isTracking && !showStatsOverlay && (
           <Button
             size="sm"
-            className="absolute top-4 left-4 z-[1000] bg-emerald-500/90 hover:bg-emerald-600"
+            className="absolute top-4 left-4 z-[1000] bg-emerald-500/90 hover:bg-emerald-600 text-white shadow-lg"
             onClick={() => setShowStatsOverlay(true)}
           >
             <Eye className="w-4 h-4" />
           </Button>
         )}
 
-        {/* Journey Control Button */}
+        {showEmissionsWidget && emissionData.length > 0 && (
+          <div className="absolute top-20 left-4 right-4 z-[1000] max-w-sm">
+            <EmissionsComparison 
+              emissionData={emissionData}
+              currentLocation={locationName}
+              compact={true}
+            />
+          </div>
+        )}
+
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2">
           {!isTracking ? (
             <Button
               size="lg"
-              className="bg-emerald-500 hover:bg-emerald-600 shadow-lg"
+              className="bg-emerald-500 hover:bg-emerald-600 shadow-lg text-white"
               onClick={handleStartJourney}
             >
               <Route className="w-5 h-5 mr-2" />
@@ -940,43 +897,42 @@ export default function MapPage() {
               <Button
                 size="lg"
                 variant="outline"
-                className="bg-white/90 hover:bg-white border-emerald-500/30"
+                className="bg-white/90 hover:bg-white border-emerald-500/30 text-emerald-700 shadow-lg"
                 onClick={() => setShowTransportSheet(true)}
               >
                 <TransportIcon className="w-5 h-5" />
               </Button>
               <Button
                 size="lg"
-                className="bg-red-500 hover:bg-red-600 shadow-lg"
+                className="bg-red-500 hover:bg-red-600 shadow-lg text-white"
                 onClick={handleStopJourney}
               >
                 <X className="w-5 h-5 mr-2" />
-                Stop Journey
+                Stop & Save
               </Button>
             </>
           )}
         </div>
       </div>
 
-      {/* Transport Mode Sheet */}
       <Sheet open={showTransportSheet} onOpenChange={setShowTransportSheet}>
-        <SheetContent side="bottom" className="bg-[#0f5132] border-emerald-500/30">
+        <SheetContent side="bottom" className="bg-[#0f5132] border-emerald-500/30 text-white">
           <SheetHeader>
             <SheetTitle className="text-white">Select Transport Mode</SheetTitle>
           </SheetHeader>
           <div className="grid grid-cols-2 gap-3 mt-6 pb-6">
             {[
-              { mode: 'walking', icon: Footprints, label: 'Walking', color: 'emerald' },
-              { mode: 'cycling', icon: Bike, label: 'Cycling', color: 'purple' },
-              { mode: 'public_transport', icon: Train, label: 'Public Transit', color: 'blue' },
-              { mode: 'driving', icon: Car, label: 'Driving', color: 'orange' }
-            ].map(({ mode, icon: Icon, label, color }) => (
+              { mode: 'walking', icon: Footprints, label: 'Walking' },
+              { mode: 'cycling', icon: Bike, label: 'Cycling' },
+              { mode: 'public_transport', icon: Train, label: 'Public Transit' },
+              { mode: 'driving', icon: Car, label: 'Driving' }
+            ].map(({ mode, icon: Icon, label }) => (
               <Button
                 key={mode}
                 variant={currentTransportMode === mode ? "default" : "outline"}
                 className={`h-24 flex flex-col gap-2 ${
                   currentTransportMode === mode 
-                    ? `bg-${color}-500 hover:bg-${color}-600 text-white` 
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white' 
                     : 'border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20'
                 }`}
                 onClick={() => handleChangeTransportMode(mode)}
@@ -989,28 +945,12 @@ export default function MapPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Layers Control Sheet */}
       <Sheet open={showLayersSheet} onOpenChange={setShowLayersSheet}>
-        <SheetContent side="bottom" className="bg-[#0f5132] border-emerald-500/30">
+        <SheetContent side="bottom" className="bg-[#0f5132] border-emerald-500/30 text-white">
           <SheetHeader>
             <SheetTitle className="text-white">Map Layers</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 mt-6 pb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Activity className="w-5 h-5 text-emerald-400" />
-                <span className="text-white font-medium">Heatmap</span>
-              </div>
-              <Button
-                size="sm"
-                variant={showHeatmap ? "default" : "outline"}
-                className={showHeatmap ? "bg-emerald-500" : "border-emerald-500/30"}
-                onClick={() => setShowHeatmap(!showHeatmap)}
-              >
-                {showHeatmap ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </Button>
-            </div>
-
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <MapPin className="w-5 h-5 text-emerald-400" />
@@ -1019,7 +959,7 @@ export default function MapPage() {
               <Button
                 size="sm"
                 variant={showWaypoints ? "default" : "outline"}
-                className={showWaypoints ? "bg-emerald-500" : "border-emerald-500/30"}
+                className={showWaypoints ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
                 onClick={() => setShowWaypoints(!showWaypoints)}
               >
                 {showWaypoints ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -1034,7 +974,7 @@ export default function MapPage() {
               <Button
                 size="sm"
                 variant={showGreenActions ? "default" : "outline"}
-                className={showGreenActions ? "bg-emerald-500" : "border-emerald-500/30"}
+                className={showGreenActions ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
                 onClick={() => setShowGreenActions(!showGreenActions)}
               >
                 {showGreenActions ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -1049,7 +989,7 @@ export default function MapPage() {
               <Button
                 size="sm"
                 variant={showHazards ? "default" : "outline"}
-                className={showHazards ? "bg-emerald-500" : "border-emerald-500/30"}
+                className={showHazards ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
                 onClick={() => setShowHazards(!showHazards)}
               >
                 {showHazards ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -1064,17 +1004,47 @@ export default function MapPage() {
               <Button
                 size="sm"
                 variant={showRouteHistory ? "default" : "outline"}
-                className={showRouteHistory ? "bg-emerald-500" : "border-emerald-500/30"}
+                className={showRouteHistory ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
                 onClick={() => setShowRouteHistory(!showRouteHistory)}
               >
                 {showRouteHistory ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </Button>
             </div>
 
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Flame className="w-5 h-5 text-orange-400" />
+                <span className="text-white font-medium">Activity Heatmap</span>
+              </div>
+              <Button
+                size="sm"
+                variant={showHeatmap ? "default" : "outline"}
+                className={showHeatmap ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowHeatmap(!showHeatmap)}
+              >
+                {showHeatmap ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Activity className="w-5 h-5 text-blue-400" />
+                <span className="text-white font-medium">Emissions Widget</span>
+              </div>
+              <Button
+                size="sm"
+                variant={showEmissionsWidget ? "default" : "outline"}
+                className={showEmissionsWidget ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowEmissionsWidget(!showEmissionsWidget)}
+              >
+                {showEmissionsWidget ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+            </div>
+
             <div className="pt-4 border-t border-emerald-500/20">
               <Button
                 size="sm"
-                className="w-full bg-amber-500 hover:bg-amber-600"
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white"
                 onClick={() => {
                   setShowLayersSheet(false);
                   setDialogType('volunteer');
@@ -1089,10 +1059,9 @@ export default function MapPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Add Dialog */}
       {showAddDialog && (
         <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-4">
-          <Card className="bg-white/15 backdrop-blur-md border-emerald-400/30 p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
+          <Card className="bg-[#0f5132] border-emerald-500/30 p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-white">
                 {dialogType === 'waypoint' ? 'Add Eco Spot' : 'Add Volunteer Event'}
@@ -1100,12 +1069,48 @@ export default function MapPage() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => setShowAddDialog(false)}
+                onClick={() => {
+                  setShowAddDialog(false);
+                  setAddressSearch('');
+                }}
                 className="text-white hover:bg-emerald-500/20"
               >
                 <X className="w-5 h-5" />
               </Button>
             </div>
+
+            {dialogType === 'volunteer' && (
+              <div className="mb-4 p-3 bg-emerald-900/30 border border-emerald-500/30 rounded-lg">
+                <p className="text-xs text-emerald-200/70 mb-2">
+                  📍 Enter an address or use your current location
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={addressSearch}
+                    onChange={(e) => setAddressSearch(e.target.value)}
+                    placeholder="Enter address..."
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSearchAddress}
+                    disabled={searchingAddress}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                  >
+                    {searchingAddress ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                {newVolunteerEvent.address && (
+                  <p className="text-xs text-emerald-300 mt-2">
+                    ✓ {newVolunteerEvent.address}
+                  </p>
+                )}
+              </div>
+            )}
 
             {dialogType === 'waypoint' ? (
               <form onSubmit={handleAddWaypoint} className="space-y-4">
@@ -1114,7 +1119,7 @@ export default function MapPage() {
                   <Input
                     value={newWaypoint.name}
                     onChange={(e) => setNewWaypoint({...newWaypoint, name: e.target.value})}
-                    className="bg-white/10 border-emerald-400/30 text-white placeholder:text-emerald-200/50"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                     required
                   />
                 </div>
@@ -1124,21 +1129,21 @@ export default function MapPage() {
                   <Textarea
                     value={newWaypoint.description}
                     onChange={(e) => setNewWaypoint({...newWaypoint, description: e.target.value})}
-                    className="bg-white/10 border-emerald-400/30 text-white placeholder:text-emerald-200/50"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                     rows={3}
                   />
                 </div>
 
                 <div>
                   <Label className="text-white">Type</Label>
-                  <Select 
-                    value={newWaypoint.type} 
+                  <Select
+                    value={newWaypoint.type}
                     onValueChange={(value) => setNewWaypoint({...newWaypoint, type: value})}
                   >
-                    <SelectTrigger className="bg-white/10 border-emerald-400/30 text-white">
+                    <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#0f5132]/95 backdrop-blur border-emerald-400/30">
+                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                       <SelectItem value="park">Park</SelectItem>
                       <SelectItem value="recycling_center">Recycling Center</SelectItem>
                       <SelectItem value="charging_station">EV Charging</SelectItem>
@@ -1150,13 +1155,9 @@ export default function MapPage() {
                   </Select>
                 </div>
 
-                <div className="text-xs text-emerald-200/60">
-                  Location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
-                </div>
-
                 <Button
                   type="submit"
-                  className="w-full bg-emerald-500 hover:bg-emerald-600"
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
                   disabled={createWaypointMutation.isPending}
                 >
                   {createWaypointMutation.isPending ? 'Adding...' : 'Add Eco Spot'}
@@ -1165,22 +1166,22 @@ export default function MapPage() {
             ) : (
               <form onSubmit={handleAddVolunteer} className="space-y-4">
                 <div>
-                  <Label className="text-white">Event Title</Label>
+                  <Label className="text-white">Event Title *</Label>
                   <Input
                     value={newVolunteerEvent.title}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, title: e.target.value})}
-                    className="bg-white/10 border-emerald-400/30 text-white placeholder:text-emerald-200/50"
-                    placeholder="e.g., Beach Cleanup at Virginia Beach"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
+                    placeholder="e.g., Beach Cleanup"
                     required
                   />
                 </div>
 
                 <div>
-                  <Label className="text-white">Description</Label>
+                  <Label className="text-white">Description *</Label>
                   <Textarea
                     value={newVolunteerEvent.description}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, description: e.target.value})}
-                    className="bg-white/10 border-emerald-400/30 text-white placeholder:text-emerald-200/50"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                     placeholder="Describe the volunteer opportunity..."
                     rows={3}
                     required
@@ -1189,31 +1190,29 @@ export default function MapPage() {
 
                 <div>
                   <Label className="text-white">Event Type</Label>
-                  <Select 
-                    value={newVolunteerEvent.action_type} 
+                  <Select
+                    value={newVolunteerEvent.action_type}
                     onValueChange={(value) => setNewVolunteerEvent({...newVolunteerEvent, action_type: value})}
                   >
-                    <SelectTrigger className="bg-white/10 border-emerald-400/30 text-white">
+                    <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#0f5132]/95 backdrop-blur border-emerald-400/30">
+                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                       <SelectItem value="volunteer">Volunteer</SelectItem>
                       <SelectItem value="plant_tree">Tree Planting</SelectItem>
                       <SelectItem value="cleanup_event">Cleanup Event</SelectItem>
                       <SelectItem value="workshop">Workshop</SelectItem>
-                      <SelectItem value="donation_drive">Donation Drive</SelectItem>
-                      <SelectItem value="repair_cafe">Repair Cafe</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div>
-                  <Label className="text-white">Event Date</Label>
+                  <Label className="text-white">Event Date *</Label>
                   <Input
                     type="date"
                     value={newVolunteerEvent.date}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, date: e.target.value})}
-                    className="bg-white/10 border-emerald-400/30 text-white"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
                     required
                   />
                 </div>
@@ -1223,20 +1222,16 @@ export default function MapPage() {
                   <Input
                     type="number"
                     value={newVolunteerEvent.points_reward}
-                    onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, points_reward: parseInt(e.target.value)})}
-                    className="bg-white/10 border-emerald-400/30 text-white"
+                    onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, points_reward: parseInt(e.target.value) || 0})}
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                     min="10"
                     max="200"
                   />
                 </div>
 
-                <div className="text-xs text-emerald-200/60">
-                  Location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
-                </div>
-
                 <Button
                   type="submit"
-                  className="w-full bg-amber-500 hover:bg-amber-600"
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white"
                   disabled={createVolunteerMutation.isPending}
                 >
                   {createVolunteerMutation.isPending ? 'Creating...' : 'Create Event'}
