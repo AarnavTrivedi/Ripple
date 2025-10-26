@@ -110,7 +110,7 @@ export default function Scanner() {
             onClick={() => setScanMode('green')}
             className={scanMode === 'green' 
               ? 'bg-emerald-500 hover:bg-emerald-600' 
-              : 'bg-[#0f5132]/60 border border-emerald-500/20 hover:bg-[#0f5132]'
+              : 'bg-white/15 backdrop-blur border border-emerald-400/30 hover:bg-white/20 text-white'
             }
           >
             <Leaf className="w-4 h-4 mr-2" />
@@ -120,7 +120,7 @@ export default function Scanner() {
             onClick={() => setScanMode('hazard')}
             className={scanMode === 'hazard' 
               ? 'bg-amber-500 hover:bg-amber-600' 
-              : 'bg-[#0f5132]/60 border border-emerald-500/20 hover:bg-[#0f5132]'
+              : 'bg-white/15 backdrop-blur border border-emerald-400/30 hover:bg-white/20 text-white'
             }
           >
             <AlertTriangle className="w-4 h-4 mr-2" />
@@ -130,14 +130,14 @@ export default function Scanner() {
       </div>
 
       {/* Camera View Simulation */}
-      <Card className="bg-[#0f5132]/40 border-emerald-500/20 backdrop-blur p-6 mb-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent" />
+      <Card className="bg-white/10 border-emerald-400/30 backdrop-blur-md p-6 mb-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent" />
         <div className="relative h-64 flex items-center justify-center">
-          <div className="w-24 h-24 border-2 border-emerald-400 rounded-full flex items-center justify-center">
-            <Camera className="w-12 h-12 text-emerald-400" />
+          <div className="w-24 h-24 border-2 border-emerald-300 rounded-full flex items-center justify-center bg-white/5">
+            <Camera className="w-12 h-12 text-emerald-300" />
           </div>
         </div>
-        <p className="text-center text-emerald-200/60 text-sm mt-4">
+        <p className="text-center text-emerald-100/80 text-sm mt-4">
           Point your camera to discover {scanMode === 'green' ? 'eco-friendly activities' : 'environmental hazards'} nearby
         </p>
       </Card>
@@ -152,9 +152,9 @@ export default function Scanner() {
           nearbyItems.map((item, index) => (
             <Card key={index} className={`${
               scanMode === 'green' 
-                ? 'bg-emerald-900/40 border-emerald-500/30' 
-                : 'bg-amber-900/40 border-amber-500/30'
-            } backdrop-blur p-4`}>
+                ? 'bg-white/15 border-emerald-400/40' 
+                : 'bg-white/15 border-amber-400/40'
+            } backdrop-blur-md p-4`}>
               <div className="flex items-start gap-3">
                 {scanMode === 'green' ? (
                   <Leaf className="w-6 h-6 text-emerald-400 flex-shrink-0" />
@@ -162,21 +162,21 @@ export default function Scanner() {
                   <AlertTriangle className="w-6 h-6 text-amber-400 flex-shrink-0" />
                 )}
                 <div className="flex-1">
-                  <h3 className="font-semibold text-white mb-1">
+                  <h3 className="font-semibold text-white mb-1 drop-shadow-lg">
                     {item.title || item.name}
                   </h3>
-                  <p className="text-sm text-gray-300 mb-2">
+                  <p className="text-sm text-emerald-100/90 mb-2">
                     {item.description}
                   </p>
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-emerald-200/60">
+                    <span className="text-emerald-200/70">
                       {item.distance.toFixed(1)} km away
                     </span>
                     {scanMode === 'green' && item.points_reward && (
-                      <span className="text-emerald-400">+{item.points_reward} pts</span>
+                      <span className="text-emerald-300 font-semibold">+{item.points_reward} pts</span>
                     )}
                     {scanMode === 'hazard' && item.hazard_level && (
-                      <span className="text-amber-400">Level: {item.hazard_level}/100</span>
+                      <span className="text-amber-300 font-semibold">Level: {item.hazard_level}/100</span>
                     )}
                   </div>
                 </div>
@@ -191,8 +191,8 @@ export default function Scanner() {
             </Card>
           ))
         ) : (
-          <Card className="bg-[#0f5132]/40 border-emerald-500/10 backdrop-blur p-6 text-center">
-            <p className="text-emerald-200/60 text-sm">
+          <Card className="bg-white/10 border-emerald-400/20 backdrop-blur-md p-6 text-center">
+            <p className="text-emerald-100/70 text-sm">
               No {scanMode === 'green' ? 'green actions' : 'hazards'} detected within 5km
             </p>
           </Card>

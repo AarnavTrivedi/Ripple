@@ -70,7 +70,7 @@ export default function Profile() {
       </div>
 
       {/* Newsletter */}
-      <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-4">
+      <Card className="bg-white/15 backdrop-blur-md border-emerald-400/30 p-6 mb-4">
         <div className="flex items-center gap-3 mb-4">
           <Mail className="w-5 h-5 text-emerald-400" />
           <h2 className="text-lg font-semibold text-white">Newsletter</h2>
@@ -94,9 +94,9 @@ export default function Profile() {
         {currentUser?.newsletter_subscribed && newsletters.length > 0 && (
           <div className="mt-4 space-y-2">
             {newsletters.slice(0, 3).map((newsletter) => (
-              <div key={newsletter.id} className="p-3 bg-[#1e4d3a]/60 rounded-lg">
+              <div key={newsletter.id} className="p-3 bg-white/10 backdrop-blur rounded-lg border border-emerald-400/20">
                 <h4 className="text-sm font-medium text-white">{newsletter.title}</h4>
-                <p className="text-xs text-emerald-200/60 mt-1">
+                <p className="text-xs text-emerald-200/70 mt-1">
                   {newsletter.location}
                 </p>
               </div>
@@ -106,7 +106,7 @@ export default function Profile() {
       </Card>
 
       {/* Settings */}
-      <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-4">
+      <Card className="bg-white/15 backdrop-blur-md border-emerald-400/30 p-6 mb-4">
         <div className="flex items-center gap-3 mb-4">
           <Bell className="w-5 h-5 text-blue-400" />
           <h2 className="text-lg font-semibold text-white">Settings</h2>
@@ -115,7 +115,7 @@ export default function Profile() {
         <div className="space-y-3">
           <Button
             variant="outline"
-            className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
+            className="w-full justify-start border-emerald-400/30 text-white hover:bg-white/10"
           >
             <Bell className="w-4 h-4 mr-3" />
             Notifications
@@ -123,7 +123,7 @@ export default function Profile() {
           
           <Button
             variant="outline"
-            className="w-full justify-start border-emerald-500/30 text-white hover:bg-[#1e4d3a]"
+            className="w-full justify-start border-emerald-400/30 text-white hover:bg-white/10"
           >
             <User className="w-4 h-4 mr-3" />
             Edit Profile

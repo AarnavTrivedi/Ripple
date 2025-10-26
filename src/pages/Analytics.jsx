@@ -64,24 +64,24 @@ export default function Analytics() {
       </div>
 
       {/* Total Carbon Saved */}
-      <Card className="bg-emerald-500/20 border-emerald-500/30 backdrop-blur p-6 mb-6">
+      <Card className="bg-gradient-to-br from-emerald-400/20 to-white/15 backdrop-blur-md border-emerald-400/40 p-6 mb-6">
         <div className="flex items-center gap-3 mb-2">
-          <TrendingUp className="w-6 h-6 text-emerald-400" />
-          <span className="text-emerald-200/80 text-sm">Total Carbon Saved</span>
+          <TrendingUp className="w-6 h-6 text-emerald-300" />
+          <span className="text-emerald-200 text-sm font-medium">Total Carbon Saved</span>
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-4xl font-bold text-white">{totalCarbon.toFixed(1)}</span>
-          <span className="text-emerald-200/60">kg CO₂</span>
+          <span className="text-4xl font-bold text-white drop-shadow-lg">{totalCarbon.toFixed(1)}</span>
+          <span className="text-emerald-200/80">kg CO₂</span>
         </div>
-        <p className="text-sm text-emerald-200/60 mt-2">
+        <p className="text-sm text-emerald-200/70 mt-2">
           ≈ {Math.floor(totalCarbon / 20)} trees planted
         </p>
       </Card>
 
       {/* Score Progress */}
       {chartData.length > 0 && (
-        <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Eco Score Progress</h2>
+        <Card className="bg-white/15 backdrop-blur-md border-emerald-400/30 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-white mb-4 drop-shadow-lg">Eco Score Progress</h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
@@ -108,8 +108,8 @@ export default function Analytics() {
 
       {/* Transport Breakdown */}
       {transportData.length > 0 && (
-        <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Transport (Last 7 Days)</h2>
+        <Card className="bg-white/15 backdrop-blur-md border-emerald-400/30 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-white mb-4 drop-shadow-lg">Transport (Last 7 Days)</h2>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={transportData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
@@ -133,23 +133,23 @@ export default function Analytics() {
 
       {/* Virginia Emissions */}
       {emissions.length > 0 && (
-        <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Virginia Emissions</h2>
+        <Card className="bg-white/15 backdrop-blur-md border-emerald-400/30 p-6">
+          <h2 className="text-lg font-semibold text-white mb-4 drop-shadow-lg">Virginia Emissions</h2>
           <div className="space-y-4">
             {emissions.slice(0, 5).map((e, i) => (
               <div key={i}>
                 <div className="flex items-center justify-between mb-2 text-sm">
-                  <span className="text-emerald-200/60">{e.location}</span>
+                  <span className="text-emerald-100/80">{e.location}</span>
                   <span className={`font-semibold ${
-                    e.change_percentage > 0 ? 'text-red-400' : 'text-emerald-400'
+                    e.change_percentage > 0 ? 'text-red-300' : 'text-emerald-300'
                   }`}>
                     {e.change_percentage > 0 ? '+' : ''}{e.change_percentage}%
                   </span>
                 </div>
-                <div className="h-2 bg-[#1e4d3a] rounded-full overflow-hidden">
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                   <div 
                     className={`h-full rounded-full ${
-                      e.change_percentage > 0 ? 'bg-red-500' : 'bg-emerald-500'
+                      e.change_percentage > 0 ? 'bg-red-400' : 'bg-emerald-400'
                     }`}
                     style={{ width: `${Math.min(Math.abs(e.change_percentage) * 10, 100)}%` }}
                   />

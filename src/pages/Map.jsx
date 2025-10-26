@@ -858,27 +858,27 @@ export default function MapPage() {
 
         {/* Real-time Stats Overlay */}
         {isTracking && showStatsOverlay && (
-          <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur border-emerald-500/30 z-[1000] p-3">
+          <Card className="absolute top-4 left-4 right-4 bg-white/15 backdrop-blur-md border-emerald-400/30 z-[1000] p-3">
             {/* Current Speed Display */}
-            <div className="text-center text-emerald-400 text-sm mb-2 flex items-center justify-center gap-2">
+            <div className="text-center text-emerald-300 text-sm mb-2 flex items-center justify-center gap-2">
               <Navigation className="w-4 h-4" />
               <span className="font-bold">
                 {(speedRef.current * 3.6).toFixed(1)} km/h
               </span>
-              <span className="text-emerald-200/60 text-xs">
+              <span className="text-emerald-100/60 text-xs">
                 ({(speedRef.current * 2.237).toFixed(1)} mph)
               </span>
             </div>
             
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-400" />
-                <span className="text-white font-semibold text-sm">Journey Active</span>
+                <Activity className="w-4 h-4 text-emerald-300" />
+                <span className="text-white font-semibold text-sm drop-shadow-lg">Journey Active</span>
               </div>
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 w-6 p-0 text-emerald-400"
+                className="h-6 w-6 p-0 text-emerald-200 hover:text-white"
                 onClick={() => setShowStatsOverlay(false)}
               >
                 <EyeOff className="w-3 h-3" />
@@ -886,26 +886,26 @@ export default function MapPage() {
             </div>
             <div className="grid grid-cols-4 gap-2">
               <div className="text-center">
-                <div className="text-emerald-200/60 text-[10px] uppercase">Distance</div>
-                <div className="text-white font-bold text-sm">
+                <div className="text-emerald-200/70 text-[10px] uppercase">Distance</div>
+                <div className="text-white font-bold text-sm drop-shadow-lg">
                   {journeyStats.distance.toFixed(2)}mi
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-emerald-200/60 text-[10px] uppercase">CO₂ Saved</div>
-                <div className="text-white font-bold text-sm">
+                <div className="text-emerald-200/70 text-[10px] uppercase">CO₂ Saved</div>
+                <div className="text-white font-bold text-sm drop-shadow-lg">
                   {journeyStats.carbonSaved.toFixed(2)}kg
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-emerald-200/60 text-[10px] uppercase">Time</div>
-                <div className="text-white font-bold text-sm">
+                <div className="text-emerald-200/70 text-[10px] uppercase">Time</div>
+                <div className="text-white font-bold text-sm drop-shadow-lg">
                   {journeyStats.duration}min
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-emerald-200/60 text-[10px] uppercase">Score</div>
-                <div className="text-white font-bold text-sm">
+                <div className="text-emerald-200/70 text-[10px] uppercase">Score</div>
+                <div className="text-white font-bold text-sm drop-shadow-lg">
                   {journeyStats.ecoScore}
                 </div>
               </div>
@@ -1092,7 +1092,7 @@ export default function MapPage() {
       {/* Add Dialog */}
       {showAddDialog && (
         <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-4">
-          <Card className="bg-[#0f5132] border-emerald-500/30 p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
+          <Card className="bg-white/15 backdrop-blur-md border-emerald-400/30 p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-white">
                 {dialogType === 'waypoint' ? 'Add Eco Spot' : 'Add Volunteer Event'}
@@ -1114,7 +1114,7 @@ export default function MapPage() {
                   <Input
                     value={newWaypoint.name}
                     onChange={(e) => setNewWaypoint({...newWaypoint, name: e.target.value})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-white/10 border-emerald-400/30 text-white placeholder:text-emerald-200/50"
                     required
                   />
                 </div>
@@ -1124,7 +1124,7 @@ export default function MapPage() {
                   <Textarea
                     value={newWaypoint.description}
                     onChange={(e) => setNewWaypoint({...newWaypoint, description: e.target.value})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-white/10 border-emerald-400/30 text-white placeholder:text-emerald-200/50"
                     rows={3}
                   />
                 </div>
@@ -1135,10 +1135,10 @@ export default function MapPage() {
                     value={newWaypoint.type} 
                     onValueChange={(value) => setNewWaypoint({...newWaypoint, type: value})}
                   >
-                    <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
+                    <SelectTrigger className="bg-white/10 border-emerald-400/30 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30">
+                    <SelectContent className="bg-[#0f5132]/95 backdrop-blur border-emerald-400/30">
                       <SelectItem value="park">Park</SelectItem>
                       <SelectItem value="recycling_center">Recycling Center</SelectItem>
                       <SelectItem value="charging_station">EV Charging</SelectItem>
@@ -1169,7 +1169,7 @@ export default function MapPage() {
                   <Input
                     value={newVolunteerEvent.title}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, title: e.target.value})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-white/10 border-emerald-400/30 text-white placeholder:text-emerald-200/50"
                     placeholder="e.g., Beach Cleanup at Virginia Beach"
                     required
                   />
@@ -1180,7 +1180,7 @@ export default function MapPage() {
                   <Textarea
                     value={newVolunteerEvent.description}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, description: e.target.value})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-white/10 border-emerald-400/30 text-white placeholder:text-emerald-200/50"
                     placeholder="Describe the volunteer opportunity..."
                     rows={3}
                     required
@@ -1193,10 +1193,10 @@ export default function MapPage() {
                     value={newVolunteerEvent.action_type} 
                     onValueChange={(value) => setNewVolunteerEvent({...newVolunteerEvent, action_type: value})}
                   >
-                    <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
+                    <SelectTrigger className="bg-white/10 border-emerald-400/30 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30">
+                    <SelectContent className="bg-[#0f5132]/95 backdrop-blur border-emerald-400/30">
                       <SelectItem value="volunteer">Volunteer</SelectItem>
                       <SelectItem value="plant_tree">Tree Planting</SelectItem>
                       <SelectItem value="cleanup_event">Cleanup Event</SelectItem>
@@ -1213,7 +1213,7 @@ export default function MapPage() {
                     type="date"
                     value={newVolunteerEvent.date}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, date: e.target.value})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-white/10 border-emerald-400/30 text-white"
                     required
                   />
                 </div>
@@ -1224,7 +1224,7 @@ export default function MapPage() {
                     type="number"
                     value={newVolunteerEvent.points_reward}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, points_reward: parseInt(e.target.value)})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-white/10 border-emerald-400/30 text-white"
                     min="10"
                     max="200"
                   />
