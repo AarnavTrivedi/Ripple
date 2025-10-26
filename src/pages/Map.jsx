@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import {
-  Navigation, Plus, X, AlertTriangle, Calendar,
+import { 
+  Navigation, Plus, X, AlertTriangle, Calendar, 
   MapPin, Activity, Car, Bike, Train, Footprints,
   Layers, Eye, EyeOff, Route, Zap, Search
 } from "lucide-react";
@@ -19,22 +18,12 @@ import L from "leaflet";
 import { format, differenceInMinutes } from "date-fns";
 import "leaflet/dist/leaflet.css";
 
-// Ensure Leaflet.heat is loaded. In a real-world project, you'd typically import it:
-// import 'leaflet.heat'; // If installed via npm and configured with webpack/rollup
-// Or include it via a script tag in your HTML.
-// For this implementation, we assume `window.L.heatLayer` is available.
-
 const HeatmapLayer = ({ points, intensity = 0.5 }) => {
   const map = useMap();
   const heatLayerRef = useRef(null);
 
   useEffect(() => {
-    // Dynamically load Leaflet.heat if not already present
-    if (!window.L || !window.L.heatLayer) {
-      console.warn("Leaflet.heat plugin not loaded. Heatmap layer will not render.");
-      // You might want to implement a dynamic script loader here if this is a common issue.
-      return;
-    }
+    if (!map || !window.L?.heatLayer) return;
 
     if (heatLayerRef.current) {
       map.removeLayer(heatLayerRef.current);
@@ -107,26 +96,26 @@ const LocationMarker = ({ position, accuracy }) => {
 
 export default function MapPage() {
   const queryClient = useQueryClient();
-
+  
   const [userLocation, setUserLocation] = useState(null);
   const [locationAccuracy, setLocationAccuracy] = useState(100);
   const [routeHistory, setRouteHistory] = useState([]);
   const [isTracking, setIsTracking] = useState(false);
   const [currentTransportMode, setCurrentTransportMode] = useState('walking');
   const [journeyStartTime, setJourneyStartTime] = useState(null);
-
+  
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogType, setDialogType] = useState('waypoint');
   const [showLayersSheet, setShowLayersSheet] = useState(false);
   const [showTransportSheet, setShowTransportSheet] = useState(false);
   const [showStatsOverlay, setShowStatsOverlay] = useState(true);
-
+  
   const [showHazards, setShowHazards] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [showWaypoints, setShowWaypoints] = useState(true);
   const [showGreenActions, setShowGreenActions] = useState(true);
   const [showRouteHistory, setShowRouteHistory] = useState(true);
-
+  
   const [addressSearch, setAddressSearch] = useState('');
   const [searchingAddress, setSearchingAddress] = useState(false);
 
@@ -150,9 +139,9 @@ export default function MapPage() {
   });
 
   const [journeyStats, setJourneyStats] = useState({
-    distance: 0, // in miles
-    carbonSaved: 0, // in kg CO2
-    duration: 0, // in minutes
+    distance: 0,
+    carbonSaved: 0,
+    duration: 0,
     ecoScore: 0
   });
 
@@ -162,28 +151,28 @@ export default function MapPage() {
         (position) => {
           const newLocation = [position.coords.latitude, position.coords.longitude];
           const accuracy = position.coords.accuracy;
-
+          
           setUserLocation(newLocation);
           setLocationAccuracy(accuracy);
-
+          
           if (isTracking && userLocation) {
             setRouteHistory(prev => {
               const updated = [...prev, newLocation];
-
+              
               if (prev.length > 0) {
                 const lastPoint = prev[prev.length - 1];
                 const distance = calculateDistance(
                   lastPoint[0], lastPoint[1],
                   newLocation[0], newLocation[1]
                 );
-
+                
                 setJourneyStats(prevStats => {
                   const newDistance = prevStats.distance + distance;
-                  const duration = journeyStartTime ?
-                    differenceInMinutes(new Date(), journeyStartTime) : 0;
                   const carbonSaved = calculateCarbonSaved(newDistance, currentTransportMode);
+                  const duration = journeyStartTime ? 
+                    differenceInMinutes(new Date(), journeyStartTime) : 0;
                   const ecoScore = calculateEcoScore(currentTransportMode, duration, carbonSaved);
-
+                  
                   return {
                     distance: newDistance,
                     carbonSaved,
@@ -192,7 +181,7 @@ export default function MapPage() {
                   };
                 });
               }
-
+              
               return updated;
             });
           }
@@ -216,7 +205,7 @@ export default function MapPage() {
         },
         (error) => {
           console.error("Location error:", error);
-          setUserLocation([37.5407, -77.4360]); // Default to Richmond, VA
+          setUserLocation([37.5407, -77.4360]);
         },
         {
           enableHighAccuracy: true,
@@ -247,90 +236,72 @@ export default function MapPage() {
     initialData: [],
   });
 
-  // Haversine formula to calculate distance between two lat/lon points (in miles)
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 3959; // Earth's radius in miles
+    const R = 3959;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   };
 
   const calculateCarbonSaved = (distanceMiles, transportMode) => {
-    // Average CO2 emissions per passenger mile (kg CO2)
-    // Driving: 0.404 kg/mile (avg car)
-    // Public Transport (bus/train): ~0.14 kg/mile (varies widely)
-    // Walking/Cycling: 0 kg/mile (direct emissions)
     const emissionFactors = {
       walking: 0,
       cycling: 0,
       public_transport: 0.14,
       driving: 0.404,
     };
-
-    const carEmissionsPerMile = emissionFactors.driving; // Baseline if driving
-    const modeEmissionsPerMile = emissionFactors[transportMode] || 0; // Emissions for chosen mode
-
-    // Carbon saved is the difference if you chose a greener mode over driving
-    const savedPerMile = carEmissionsPerMile - modeEmissionsPerMile;
-
-    return Math.max(0, savedPerMile * distanceMiles); // Ensure saved carbon is not negative
+    
+    const carEmissions = 0.404;
+    const modeEmissions = emissionFactors[transportMode] || 0;
+    const savedPerMile = carEmissions - modeEmissions;
+    
+    return Math.max(0, savedPerMile * distanceMiles);
   };
 
   const calculateEcoScore = (transportMode, durationMinutes, carbonSaved) => {
-    // Base scores for different transport modes
-    const modeBaseScores = {
+    const modeScores = {
       walking: 100,
       cycling: 95,
       public_transport: 75,
-      driving: 30, // Penalize driving significantly
+      driving: 30,
     };
-
-    let baseScore = modeBaseScores[transportMode] || 50; // Default if mode is unknown
-
-    // Duration bonus (max 20 points for longer journeys, e.g., 40 mins * 0.5)
+    
+    const baseScore = modeScores[transportMode] || 50;
     const durationBonus = Math.min(durationMinutes * 0.5, 20);
-
-    // Carbon saved bonus (max 30 points, e.g., 3 kg saved * 10)
-    const carbonSavedBonus = Math.min(carbonSaved * 10, 30);
-
-    let finalScore = baseScore + durationBonus + carbonSavedBonus;
-
-    // Cap the score at 100
-    return Math.min(100, Math.round(finalScore));
+    const carbonBonus = Math.min(carbonSaved * 10, 30);
+    
+    return Math.min(100, Math.round(baseScore + durationBonus + carbonBonus));
   };
 
   const heatmapData = useMemo(() => {
-    if (!showHeatmap || !window.L || !window.L.heatLayer) return [];
-
+    if (!showHeatmap) return [];
+    
     const points = [];
-
+    
     waypoints.forEach(waypoint => {
       if (waypoint.latitude && waypoint.longitude) {
-        // Eco-rating determines intensity (higher rating = more "eco" or positive intensity)
-        const intensity = (waypoint.eco_rating || 70) / 100; // Scale 0-1
+        const intensity = (waypoint.eco_rating || 70) / 100;
         points.push([waypoint.latitude, waypoint.longitude, intensity]);
       }
     });
-
+    
     greenActions.forEach(action => {
       if (action.latitude && action.longitude && !action.completed) {
-        // Green actions are high intensity points
         points.push([action.latitude, action.longitude, 0.9]);
       }
     });
-
+    
     hazards.forEach(hazard => {
       if (hazard.latitude && hazard.longitude) {
-        // Hazard zones could be inverse intensity (higher hazard = lower "eco" intensity)
-        const intensity = 1 - (hazard.hazard_level / 100); // Scale 0-1
+        const intensity = 1 - (hazard.hazard_level / 100);
         points.push([hazard.latitude, hazard.longitude, intensity]);
       }
     });
-
+    
     return points;
   }, [waypoints, greenActions, hazards, showHeatmap]);
 
@@ -370,14 +341,14 @@ export default function MapPage() {
 
   const handleSearchAddress = async () => {
     if (!addressSearch) return;
-
+    
     setSearchingAddress(true);
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressSearch)}, Virginia`
       );
       const data = await response.json();
-
+      
       if (data && data.length > 0) {
         const location = data[0];
         if (dialogType === 'volunteer') {
@@ -407,25 +378,25 @@ export default function MapPage() {
 
   const handleAddWaypoint = (e) => {
     e.preventDefault();
-
+    
     const lat = newWaypoint.latitude || userLocation[0];
     const lon = newWaypoint.longitude || userLocation[1];
-
+    
     createWaypointMutation.mutate({
       ...newWaypoint,
       latitude: lat,
       longitude: lon,
       is_user_created: true,
-      eco_rating: 85 // Default rating for user-created
+      eco_rating: 85
     });
   };
 
   const handleAddVolunteer = (e) => {
     e.preventDefault();
-
+    
     const lat = newVolunteerEvent.latitude || userLocation[0];
     const lon = newVolunteerEvent.longitude || userLocation[1];
-
+    
     createVolunteerMutation.mutate({
       title: newVolunteerEvent.title,
       description: newVolunteerEvent.description,
@@ -443,20 +414,18 @@ export default function MapPage() {
     setJourneyStartTime(new Date());
     setRouteHistory(userLocation ? [userLocation] : []);
     setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
-    setShowTransportSheet(true); // Automatically open sheet to select mode
-    setShowStatsOverlay(true); // Ensure stats are visible
+    setShowTransportSheet(true);
+    setShowStatsOverlay(true);
   };
 
   const handleStopJourney = () => {
     setIsTracking(false);
     setShowTransportSheet(false);
-
+    
     if (journeyStats.distance > 0) {
-      // Here you could save the journeyStats to your backend or display a summary modal
-      console.log('Journey completed:', journeyStats);
-      alert(`Journey Summary:\nDistance: ${journeyStats.distance.toFixed(2)} miles\nCarbon Saved: ${journeyStats.carbonSaved.toFixed(2)} kg CO2\nDuration: ${journeyStats.duration} minutes\nEco Score: ${journeyStats.ecoScore}`);
+      alert(`Journey Complete!\n\nDistance: ${journeyStats.distance.toFixed(2)} miles\nCO₂ Saved: ${journeyStats.carbonSaved.toFixed(2)} kg\nDuration: ${journeyStats.duration} min\nEco Score: ${journeyStats.ecoScore}/100`);
     }
-    // Reset journey stats for next journey
+    
     setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
     setRouteHistory([]);
   };
@@ -475,10 +444,10 @@ export default function MapPage() {
       community_garden: '#84cc16',
       water_refill: '#06b6d4',
       eco_store: '#f59e0b',
-      green_action: '#fbbf24' // A distinct color for green actions
+      green_action: '#fbbf24'
     };
 
-    const color = isGreenAction ? colors.green_action : (colors[type] || '#10b981'); // Default to green
+    const color = isGreenAction ? colors.green_action : (colors[type] || '#10b981');
 
     return new L.Icon({
       iconUrl: `data:image/svg+xml,${encodeURIComponent(`
@@ -487,8 +456,8 @@ export default function MapPage() {
         </svg>
       `)}`,
       iconSize: [32, 32],
-      iconAnchor: [16, 32], // Point of the icon which will correspond to marker's location
-      popupAnchor: [0, -32] // Point from which the popup should open relative to the iconAnchor
+      iconAnchor: [16, 32],
+      popupAnchor: [0, -32]
     });
   };
 
@@ -499,11 +468,11 @@ export default function MapPage() {
     driving: Car
   };
 
-  const TransportIcon = transportIcons[currentTransportMode] || Footprints; // Default icon if mode is not found
+  const TransportIcon = transportIcons[currentTransportMode] || Footprints;
 
   if (!userLocation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0d3f2b]">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 to-green-900">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-white">Getting your location...</p>
@@ -524,7 +493,7 @@ export default function MapPage() {
             <Button
               size="sm"
               variant="outline"
-              className="border-emerald-500/30 h-8 px-2 text-white hover:text-white hover:bg-emerald-500/20"
+              className="border-emerald-500/30 h-8 px-2 text-white hover:bg-emerald-500/20"
               onClick={() => setShowLayersSheet(true)}
             >
               <Layers className="w-4 h-4 mr-1" />
@@ -539,7 +508,7 @@ export default function MapPage() {
               }}
             >
               <Plus className="w-4 h-4 mr-1" />
-              Add Spot
+              Add
             </Button>
           </div>
         </div>
@@ -560,7 +529,7 @@ export default function MapPage() {
           {showHeatmap && heatmapData.length > 0 && window.L?.heatLayer && (
             <HeatmapLayer points={heatmapData} intensity={0.6} />
           )}
-
+          
           <LocationMarker position={userLocation} accuracy={locationAccuracy} />
 
           {showRouteHistory && routeHistory.length > 1 && (
@@ -603,14 +572,14 @@ export default function MapPage() {
             <Marker
               key={action.id}
               position={[action.latitude, action.longitude]}
-              icon={getMarkerIcon(null, true)} // Pass true for isGreenAction
+              icon={getMarkerIcon(null, true)}
             >
               <Popup>
                 <div className="min-w-[220px]">
                   <h3 className="font-semibold text-base mb-1">{action.title}</h3>
                   <p className="text-sm text-gray-600 mb-2">{action.description}</p>
                   <div className="space-y-1 text-xs text-gray-500">
-                    <div>📅 {format(new Date(action.date), 'MMM d, yyyy, h:mm a')}</div>
+                    <div>📅 {format(new Date(action.date), 'MMM d, yyyy')}</div>
                     {action.points_reward && (
                       <div className="text-emerald-600 font-semibold">
                         🏆 +{action.points_reward} Eco Points
@@ -623,13 +592,13 @@ export default function MapPage() {
           ))}
 
           {showHazards && hazards.map((hazard) => {
-            const color = hazard.hazard_level > 60 ? '#ef4444' :
+            const color = hazard.hazard_level > 60 ? '#ef4444' : 
                           hazard.hazard_level > 40 ? '#f59e0b' : '#fbbf24';
             return (
               <Circle
                 key={hazard.id}
                 center={[hazard.latitude, hazard.longitude]}
-                radius={hazard.hazard_level * 10} // Radius scales with hazard level
+                radius={hazard.hazard_level * 10}
                 pathOptions={{
                   color: color,
                   fillColor: color,
@@ -658,7 +627,7 @@ export default function MapPage() {
         </MapContainer>
 
         {isTracking && showStatsOverlay && (
-          <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur border-emerald-500/30 z-[1000] p-3 shadow-lg">
+          <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur border-emerald-500/30 z-[1000] p-3 shadow-xl">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-emerald-400" />
@@ -738,7 +707,7 @@ export default function MapPage() {
                 onClick={handleStopJourney}
               >
                 <X className="w-5 h-5 mr-2" />
-                Stop Journey
+                Stop
               </Button>
             </>
           )}
@@ -761,8 +730,8 @@ export default function MapPage() {
                 key={mode}
                 variant={currentTransportMode === mode ? "default" : "outline"}
                 className={`h-24 flex flex-col gap-2 ${
-                  currentTransportMode === mode
-                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                  currentTransportMode === mode 
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white' 
                     : 'border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20'
                 }`}
                 onClick={() => handleChangeTransportMode(mode)}
@@ -861,9 +830,9 @@ export default function MapPage() {
                 size="sm"
                 className="w-full bg-amber-500 hover:bg-amber-600 text-white"
                 onClick={() => {
-                  setShowLayersSheet(false); // Close layers sheet
+                  setShowLayersSheet(false);
                   setDialogType('volunteer');
-                  setShowAddDialog(true); // Open add event dialog
+                  setShowAddDialog(true);
                 }}
               >
                 <Calendar className="w-4 h-4 mr-2" />
@@ -986,7 +955,7 @@ export default function MapPage() {
                     value={newVolunteerEvent.title}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, title: e.target.value})}
                     className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
-                    placeholder="e.g., Beach Cleanup at Virginia Beach"
+                    placeholder="e.g., Beach Cleanup"
                     required
                   />
                 </div>
@@ -1017,8 +986,6 @@ export default function MapPage() {
                       <SelectItem value="plant_tree">Tree Planting</SelectItem>
                       <SelectItem value="cleanup_event">Cleanup Event</SelectItem>
                       <SelectItem value="workshop">Workshop</SelectItem>
-                      <SelectItem value="donation_drive">Donation Drive</SelectItem>
-                      <SelectItem value="repair_cafe">Repair Cafe</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
