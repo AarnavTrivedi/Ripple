@@ -13,11 +13,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { 
   Plus, X, AlertTriangle, Calendar, 
   MapPin, Activity, Car, Bike, Train, Footprints,
-  Layers, Eye, EyeOff, Route, Zap, Search
+  Layers, Eye, EyeOff, Route, Zap, Search, Flame
 } from "lucide-react";
 import L from "leaflet";
+import "leaflet.heat";
 import { format, differenceInMinutes } from "date-fns";
 import "leaflet/dist/leaflet.css";
+import EmissionsComparison from "../components/map/EmissionsComparison";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -63,6 +65,49 @@ const LocationMarker = ({ position, accuracy }) => {
   );
 };
 
+const HeatmapLayer = ({ waypoints, greenActions }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || (!waypoints.length && !greenActions.length)) return;
+
+    const points = [];
+    
+    waypoints.forEach(wp => {
+      if (wp.latitude && wp.longitude) {
+        const intensity = (wp.eco_rating || 50) / 100;
+        points.push([wp.latitude, wp.longitude, intensity]);
+      }
+    });
+
+    greenActions.forEach(action => {
+      if (action.latitude && action.longitude) {
+        points.push([action.latitude, action.longitude, 0.8]);
+      }
+    });
+
+    if (points.length === 0) return;
+
+    const heatLayer = L.heatLayer(points, {
+      radius: 25,
+      blur: 15,
+      maxZoom: 17,
+      max: 1.0,
+      gradient: {
+        0.0: '#3b82f6',
+        0.5: '#10b981',
+        1.0: '#fbbf24'
+      }
+    }).addTo(map);
+
+    return () => {
+      map.removeLayer(heatLayer);
+    };
+  }, [map, waypoints, greenActions]);
+
+  return null;
+};
+
 export default function MapPage() {
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState(null);
@@ -79,14 +124,17 @@ export default function MapPage() {
   const [showLayersSheet, setShowLayersSheet] = useState(false);
   const [showTransportSheet, setShowTransportSheet] = useState(false);
   const [showStatsOverlay, setShowStatsOverlay] = useState(true);
+  const [showEmissionsWidget, setShowEmissionsWidget] = useState(false);
   
   const [showHazards, setShowHazards] = useState(true);
   const [showWaypoints, setShowWaypoints] = useState(true);
   const [showGreenActions, setShowGreenActions] = useState(true);
   const [showRouteHistory, setShowRouteHistory] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false);
   
   const [addressSearch, setAddressSearch] = useState('');
   const [searchingAddress, setSearchingAddress] = useState(false);
+  const [locationName, setLocationName] = useState("Your Area");
 
   const [newWaypoint, setNewWaypoint] = useState({
     name: '',
@@ -129,12 +177,23 @@ export default function MapPage() {
   useEffect(() => {
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
-        (position) => {
+        async (position) => {
           const newLocation = [position.coords.latitude, position.coords.longitude];
           const accuracy = position.coords.accuracy;
           
           setUserLocation(newLocation);
           setLocationAccuracy(accuracy);
+
+          // Get location name
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLocation[0]}&lon=${newLocation[1]}`
+            );
+            const data = await response.json();
+            setLocationName(data.address.county || data.address.city || data.address.state || "Your Area");
+          } catch (error) {
+            console.error("Error getting location name:", error);
+          }
           
           if (isTracking && routeHistory.length > 0) {
             const lastPoint = routeHistory[routeHistory.length - 1];
@@ -207,6 +266,12 @@ export default function MapPage() {
   const { data: hazards } = useQuery({
     queryKey: ['hazards'],
     queryFn: () => base44.entities.HazardZone.list(),
+    initialData: [],
+  });
+
+  const { data: emissionData } = useQuery({
+    queryKey: ['emissions'],
+    queryFn: () => base44.entities.EmissionData.list('-date', 50),
     initialData: [],
   });
 
@@ -558,6 +623,10 @@ export default function MapPage() {
           
           <LocationMarker position={userLocation} accuracy={locationAccuracy} />
 
+          {showHeatmap && (
+            <HeatmapLayer waypoints={waypoints} greenActions={greenActions} />
+          )}
+
           {showRouteHistory && routeHistory.length > 1 && (
             <Polyline
               positions={routeHistory}
@@ -741,6 +810,16 @@ export default function MapPage() {
           </Button>
         )}
 
+        {showEmissionsWidget && emissionData.length > 0 && (
+          <div className="absolute top-20 left-4 right-4 z-[1000] max-w-sm">
+            <EmissionsComparison 
+              emissionData={emissionData}
+              currentLocation={locationName}
+              compact={true}
+            />
+          </div>
+        )}
+
         <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2">
           {!isTracking ? (
             <Button
@@ -867,6 +946,36 @@ export default function MapPage() {
                 onClick={() => setShowRouteHistory(!showRouteHistory)}
               >
                 {showRouteHistory ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Flame className="w-5 h-5 text-orange-400" />
+                <span className="text-white font-medium">Activity Heatmap</span>
+              </div>
+              <Button
+                size="sm"
+                variant={showHeatmap ? "default" : "outline"}
+                className={showHeatmap ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowHeatmap(!showHeatmap)}
+              >
+                {showHeatmap ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Activity className="w-5 h-5 text-blue-400" />
+                <span className="text-white font-medium">Emissions Widget</span>
+              </div>
+              <Button
+                size="sm"
+                variant={showEmissionsWidget ? "default" : "outline"}
+                className={showEmissionsWidget ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowEmissionsWidget(!showEmissionsWidget)}
+              >
+                {showEmissionsWidget ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </Button>
             </div>
 

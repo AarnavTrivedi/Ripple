@@ -9,7 +9,7 @@
     },
     "location": {
       "type": "string",
-      "description": "County or region name"
+      "description": "County, region, or country name"
     },
     "co2_tons": {
       "type": "number",
@@ -18,7 +18,6 @@
     "scope": {
       "type": "string",
       "enum": [
-        "local",
         "county",
         "state",
         "country",
@@ -29,6 +28,23 @@
     "change_percentage": {
       "type": "number",
       "description": "Percentage change from previous period"
+    },
+    "year": {
+      "type": "number",
+      "description": "Year of the data"
+    },
+    "region_type": {
+      "type": "string",
+      "enum": [
+        "county",
+        "national",
+        "global"
+      ],
+      "description": "Type of region for comparison"
+    },
+    "total_emissions": {
+      "type": "number",
+      "description": "Total emissions value"
     }
   },
   "required": [
