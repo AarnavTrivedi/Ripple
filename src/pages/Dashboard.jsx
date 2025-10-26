@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -150,23 +149,16 @@ export default function Dashboard() {
       </div>
 
       <div className="relative z-10 px-6 pt-8 pb-32">
-        {/* Eco Score Card - Exact Match */}
-        <Card className="bg-white/10 backdrop-blur-2xl border-white/20 shadow-2xl rounded-[2rem] p-8 mb-6 relative overflow-hidden">
-          {/* Ripple Effects */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="absolute w-[300px] h-[300px] rounded-full border-2 border-emerald-400/20 animate-ping" style={{ animationDuration: '3s' }} />
-            <div className="absolute w-[240px] h-[240px] rounded-full border-2 border-emerald-400/30 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }} />
-            <div className="absolute w-[180px] h-[180px] rounded-full border-2 border-emerald-400/40 animate-ping" style={{ animationDuration: '2s', animationDelay: '0.6s' }} />
-          </div>
-
-          <div className="relative flex flex-col items-center">
-            {/* Large Score Number */}
-            <div className="text-[120px] font-bold text-white leading-none mb-2">
+        {/* Eco Score Card - Smaller & No Animation */}
+        <Card className="bg-white/10 backdrop-blur-2xl border-white/20 shadow-2xl rounded-[2rem] p-6 mb-6 relative overflow-hidden">
+          <div className="flex flex-col items-center">
+            {/* Smaller Score Number */}
+            <div className="text-[80px] font-bold text-white leading-none mb-2">
               {score}
             </div>
             
             {/* ECO SCORE Label */}
-            <div className="text-sm text-gray-300 uppercase tracking-[0.25em] mb-8">
+            <div className="text-xs text-gray-300 uppercase tracking-[0.25em] mb-6">
               ECO SCORE
             </div>
             
@@ -174,7 +166,7 @@ export default function Dashboard() {
             {!todayScore ? (
               <Button
                 onClick={handleStartTracking}
-                className="bg-[#10D9A0] hover:bg-[#0ec090] text-white font-semibold px-10 py-6 rounded-full text-base shadow-lg transition-all duration-300 hover:scale-105"
+                className="bg-[#10D9A0] hover:bg-[#0ec090] text-white font-semibold px-8 py-4 rounded-full text-sm shadow-lg transition-all duration-300"
               >
                 Start Tracking Today
               </Button>
@@ -207,7 +199,7 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold text-white">Volunteer Opportunities</h3>
             <Button
               size="sm"
-              className="bg-transparent border border-white/20 hover:bg-white/10 text-white rounded-full px-4 py-2"
+              className="bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20 text-white rounded-full px-4 py-2"
               onClick={() => window.location.href = createPageUrl('Map')}
             >
               <Plus className="w-4 h-4 mr-1" />
@@ -235,7 +227,6 @@ export default function Dashboard() {
             </div>
           ) : (
             <Card className="bg-white/10 backdrop-blur-xl border-white/20 rounded-[2rem] p-12 text-center">
-              {/* Circular Icon */}
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center">
                 <RefreshCw className="w-10 h-10 text-gray-400" />
               </div>
@@ -254,7 +245,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Newsletter Section - Fixed for Mobile */}
+        {/* Newsletter Section */}
         {newsletters.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">

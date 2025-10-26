@@ -1,3 +1,4 @@
+
 /* eslint-disable react/prop-types */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
@@ -639,7 +640,7 @@ export default function MapPage() {
             <Button
               size="sm"
               variant="outline"
-              className="border-emerald-500/30 h-8 px-2 text-white hover:bg-emerald-500/20"
+              className="border-emerald-500/30 bg-white/10 backdrop-blur-xl h-8 px-2 text-white hover:bg-white/20"
               onClick={() => setShowLayersSheet(true)}
             >
               <Layers className="w-4 h-4 mr-1" />
@@ -809,7 +810,7 @@ export default function MapPage() {
         </MapContainer>
 
         {isTracking && showStatsOverlay && (
-          <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur border-emerald-500/30 z-[1000] p-3 shadow-xl">
+          <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur-xl border-emerald-500/30 z-[1000] p-3 shadow-xl">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />

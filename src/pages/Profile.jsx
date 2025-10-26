@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -46,7 +47,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen p-6 pt-8">
+    <div className="min-h-screen p-6 pt-8 pb-32">
       {/* Header */}
       <div className="mb-8">
         <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mb-4">
@@ -70,7 +71,7 @@ export default function Profile() {
       </div>
 
       {/* Newsletter */}
-      <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-4">
+      <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 mb-4">
         <div className="flex items-center gap-3 mb-4">
           <Mail className="w-5 h-5 text-emerald-400" />
           <h2 className="text-lg font-semibold text-white">Newsletter</h2>
@@ -106,7 +107,7 @@ export default function Profile() {
       </Card>
 
       {/* Settings */}
-      <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-4">
+      <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 mb-4">
         <div className="flex items-center gap-3 mb-4">
           <Bell className="w-5 h-5 text-blue-400" />
           <h2 className="text-lg font-semibold text-white">Settings</h2>
@@ -135,7 +136,7 @@ export default function Profile() {
       <Button
         onClick={handleLogout}
         variant="outline"
-        className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10"
+        className="w-full border-red-500/30 bg-white/10 backdrop-blur-xl text-red-400 hover:bg-red-500/10"
       >
         <LogOut className="w-4 h-4 mr-2" />
         Logout

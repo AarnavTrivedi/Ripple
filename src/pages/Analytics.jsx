@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -57,14 +58,14 @@ export default function Analytics() {
   const totalCarbon = ecoScores.reduce((sum, s) => sum + (s.carbon_saved_kg || 0), 0);
 
   return (
-    <div className="min-h-screen p-6 pt-8">
+    <div className="min-h-screen p-6 pt-8 pb-32">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Analytics</h1>
         <p className="text-emerald-200/60 text-sm">Track your environmental impact</p>
       </div>
 
       {/* Total Carbon Saved */}
-      <Card className="bg-emerald-500/20 border-emerald-500/30 backdrop-blur p-6 mb-6">
+      <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 mb-6">
         <div className="flex items-center gap-3 mb-2">
           <TrendingUp className="w-6 h-6 text-emerald-400" />
           <span className="text-emerald-200/80 text-sm">Total Carbon Saved</span>
@@ -80,7 +81,7 @@ export default function Analytics() {
 
       {/* Score Progress */}
       {chartData.length > 0 && (
-        <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-6">
+        <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 mb-6">
           <h2 className="text-lg font-semibold text-white mb-4">Eco Score Progress</h2>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData}>
@@ -108,7 +109,7 @@ export default function Analytics() {
 
       {/* Transport Breakdown */}
       {transportData.length > 0 && (
-        <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6 mb-6">
+        <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 mb-6">
           <h2 className="text-lg font-semibold text-white mb-4">Transport (Last 7 Days)</h2>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={transportData}>
@@ -133,7 +134,7 @@ export default function Analytics() {
 
       {/* Virginia Emissions */}
       {emissions.length > 0 && (
-        <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur p-6">
+        <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6">
           <h2 className="text-lg font-semibold text-white mb-4">Virginia Emissions</h2>
           <div className="space-y-4">
             {emissions.slice(0, 5).map((e, i) => (

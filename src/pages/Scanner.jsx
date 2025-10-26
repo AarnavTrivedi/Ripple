@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
@@ -21,7 +22,8 @@ export default function Scanner() {
         },
         (error) => {
           console.error("Location error:", error);
-          setUserLocation({ latitude: 37.5407, longitude: -77.4360 });
+          // Fallback to a default location if geolocation fails
+          setUserLocation({ latitude: 37.5407, longitude: -77.4360 }); // Richmond, VA
         },
         { enableHighAccuracy: true }
       );
@@ -44,7 +46,7 @@ export default function Scanner() {
     if (!userLocation) return;
 
     const calculateDistance = (lat1, lon1, lat2, lon2) => {
-      const R = 6371;
+      const R = 6371; // Radius of Earth in kilometers
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -56,7 +58,7 @@ export default function Scanner() {
 
     if (scanMode === 'green') {
       const nearby = greenActions
-        .filter(a => a.latitude && a.longitude)
+        .filter(a => a.latitude && a.longitude) // Ensure coordinates exist
         .map(a => ({
           ...a,
           distance: calculateDistance(
@@ -66,12 +68,13 @@ export default function Scanner() {
             a.longitude
           )
         }))
-        .filter(a => a.distance < 5)
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 5);
+        .filter(a => a.distance < 5) // Filter items within 5km
+        .sort((a, b) => a.distance - b.distance) // Sort by distance
+        .slice(0, 5); // Take top 5
       setNearbyItems(nearby);
-    } else {
+    } else { // scanMode === 'hazard'
       const nearby = hazards
+        .filter(h => h.latitude && h.longitude) // Ensure coordinates exist
         .map(h => ({
           ...h,
           distance: calculateDistance(
@@ -81,9 +84,9 @@ export default function Scanner() {
             h.longitude
           )
         }))
-        .filter(h => h.distance < 5)
-        .sort((a, b) => a.distance - b.distance)
-        .slice(0, 5);
+        .filter(h => h.distance < 5) // Filter items within 5km
+        .sort((a, b) => a.distance - b.distance) // Sort by distance
+        .slice(0, 5); // Take top 5
       setNearbyItems(nearby);
     }
   }, [userLocation, scanMode, greenActions, hazards]);
@@ -100,7 +103,7 @@ export default function Scanner() {
   }
 
   return (
-    <div className="min-h-screen p-6 pt-8">
+    <div className="min-h-screen p-6 pt-8 pb-32">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-white mb-4">AR Scanner</h1>
         
@@ -110,7 +113,7 @@ export default function Scanner() {
             onClick={() => setScanMode('green')}
             className={scanMode === 'green' 
               ? 'bg-emerald-500 hover:bg-emerald-600' 
-              : 'bg-[#0f5132]/60 border border-emerald-500/20 hover:bg-[#0f5132]'
+              : 'bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20'
             }
           >
             <Leaf className="w-4 h-4 mr-2" />
@@ -120,7 +123,7 @@ export default function Scanner() {
             onClick={() => setScanMode('hazard')}
             className={scanMode === 'hazard' 
               ? 'bg-amber-500 hover:bg-amber-600' 
-              : 'bg-[#0f5132]/60 border border-emerald-500/20 hover:bg-[#0f5132]'
+              : 'bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20'
             }
           >
             <AlertTriangle className="w-4 h-4 mr-2" />
@@ -130,7 +133,7 @@ export default function Scanner() {
       </div>
 
       {/* Camera View Simulation */}
-      <Card className="bg-[#0f5132]/40 border-emerald-500/20 backdrop-blur p-6 mb-6 relative overflow-hidden">
+      <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 mb-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent" />
         <div className="relative h-64 flex items-center justify-center">
           <div className="w-24 h-24 border-2 border-emerald-400 rounded-full flex items-center justify-center">
@@ -152,9 +155,9 @@ export default function Scanner() {
           nearbyItems.map((item, index) => (
             <Card key={index} className={`${
               scanMode === 'green' 
-                ? 'bg-emerald-900/40 border-emerald-500/30' 
-                : 'bg-amber-900/40 border-amber-500/30'
-            } backdrop-blur p-4`}>
+                ? 'bg-white/10 border-white/20' 
+                : 'bg-white/10 border-white/20'
+            } backdrop-blur-xl p-4`}>
               <div className="flex items-start gap-3">
                 {scanMode === 'green' ? (
                   <Leaf className="w-6 h-6 text-emerald-400 flex-shrink-0" />
@@ -191,7 +194,7 @@ export default function Scanner() {
             </Card>
           ))
         ) : (
-          <Card className="bg-[#0f5132]/40 border-emerald-500/10 backdrop-blur p-6 text-center">
+          <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 text-center">
             <p className="text-emerald-200/60 text-sm">
               No {scanMode === 'green' ? 'green actions' : 'hazards'} detected within 5km
             </p>
