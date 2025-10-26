@@ -149,10 +149,10 @@ export default function Dashboard() {
       </div>
 
       <div className="relative z-10 px-6 pt-8 pb-32">
-        {/* Eco Score Card - Smaller & No Animation */}
+        {/* Eco Score Card - With Opacity to See Background */}
         <Card className="bg-white/10 backdrop-blur-2xl border-white/20 shadow-2xl rounded-[2rem] p-6 mb-6 relative overflow-hidden">
           <div className="flex flex-col items-center">
-            {/* Smaller Score Number */}
+            {/* Smaller Score Number - Centered */}
             <div className="text-[80px] font-bold text-white leading-none mb-2">
               {score}
             </div>
@@ -257,7 +257,7 @@ export default function Dashboard() {
               {newsletters.slice(0, 3).map((newsletter) => (
                 <Card 
                   key={newsletter.id} 
-                  className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-4 hover:bg-white/15 transition-all duration-300 cursor-pointer overflow-hidden"
+                  className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-4 hover:bg-white/15 transition-all duration-300 cursor-pointer"
                 >
                   <div className="flex items-start gap-3">
                     {newsletter.image_url && (
