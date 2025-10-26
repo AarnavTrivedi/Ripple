@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+/* eslint-disable react/prop-types */
+import { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +71,7 @@ export default function ActivityLogger({ onLogActivity, currentScore, currentAct
           className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-lg"
         >
           <Plus className="w-4 h-4 mr-2" />
-          Log Today's Activities
+          Log Today&apos;s Activities
         </Button>
       ) : (
         <Card className="bg-[#0f5132]/60 border-emerald-500/20 backdrop-blur-sm p-5">
@@ -190,7 +191,7 @@ export default function ActivityLogger({ onLogActivity, currentScore, currentAct
 
       {currentActivities && (
         <Card className="bg-[#0f5132]/40 border-emerald-500/10 backdrop-blur-sm p-4 mt-4">
-          <h4 className="text-white font-semibold text-sm mb-3">Today's Progress</h4>
+          <h4 className="text-white font-semibold text-sm mb-3">Today&apos;s Progress</h4>
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-emerald-200/60">Walking:</span>

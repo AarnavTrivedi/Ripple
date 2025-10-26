@@ -1,4 +1,5 @@
 
+/* eslint-disable react/no-unescaped-entities */
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

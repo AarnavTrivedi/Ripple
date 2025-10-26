@@ -1,5 +1,5 @@
-
-import React, { useState, useEffect, useRef, useMemo } from "react";
+/* eslint-disable react/prop-types */
+import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from "react-leaflet";
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { 
-  Navigation, Plus, X, AlertTriangle, Calendar, 
+  Plus, X, AlertTriangle, Calendar, 
   MapPin, Activity, Car, Bike, Train, Footprints,
   Layers, Eye, EyeOff, Route, Zap, Search
 } from "lucide-react";
