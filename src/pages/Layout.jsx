@@ -16,8 +16,11 @@ export default function Layout({ children, currentPageName }) {
   ];
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden font-['DM_Sans',system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',Arial,sans-serif]">
       <style>{`
+        /* DM Sans - Distinctive geometric with eco-friendly character */
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+        
         .plant-bg {
           background-image: 
             radial-gradient(circle at 20% 30%, rgba(16, 185, 129, 0.06) 0%, transparent 50%),
@@ -33,53 +36,58 @@ export default function Layout({ children, currentPageName }) {
         }
       `}</style>
 
-      {/* Nature Background */}
+      {/* Nature-Themed Emerald Background */}
       <div className="fixed inset-0 bg-gradient-to-br from-[#0a3d29] via-[#0f5132] to-[#0a3d29] plant-bg" />
       <div className="fixed inset-0 leaf-pattern opacity-40" />
       <div className="fixed inset-0 bg-gradient-to-t from-[#0a3d29]/60 to-transparent" />
 
-      {/* Vertical Sidebar - Right Edge */}
-      <div className="fixed right-0 top-0 bottom-0 w-12 bg-gradient-to-b from-[#0f5132]/60 to-[#0a3d29]/60 backdrop-blur-sm border-l border-emerald-500/10 z-40 flex items-center justify-center">
-        <div className="transform -rotate-90 whitespace-nowrap">
-          <p className="text-white/60 text-[10px] uppercase tracking-[0.4em] font-light">
-            Events
-          </p>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <main className="relative pb-24 pr-12">
+      {/* Main Content - Full Width (Sidebar Removed!) */}
+      <main className="relative pb-28">
         {children}
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-12 bg-[#0f5132]/90 backdrop-blur-xl border-t border-emerald-500/20 z-50">
-        <div className="max-w-lg mx-auto px-6 py-3">
-          <div className="flex items-center justify-between">
-            {navItems.map((item) => {
-              const isActive = location.pathname === item.url;
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.url}
-                  className="flex flex-col items-center gap-1 transition-all"
-                >
-                  <div className={`p-2.5 rounded-xl transition-all ${
-                    isActive
-                      ? 'bg-emerald-500/90 shadow-lg shadow-emerald-500/30' 
-                      : 'text-emerald-200/50 hover:text-emerald-200/80'
-                  }`}>
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-white' : ''}`} />
-                  </div>
-                  <span className={`text-[9px] font-medium ${
-                    isActive ? 'text-emerald-300' : 'text-emerald-200/40'
-                  }`}>
-                    {item.name}
-                  </span>
-                </Link>
-              );
-            })}
+      {/* Modern Bottom Navigation - 2025 Best Practices */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50">
+        {/* Floating Pill Container with Blur */}
+        <div className="mx-4 mb-safe-4 pb-4">
+          <div className="max-w-md mx-auto bg-white/95 backdrop-blur-xl rounded-[28px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-slate-200/50 px-2 py-3">
+            <div className="flex items-center justify-around">
+              {navItems.map((item) => {
+                const isActive = location.pathname === item.url;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.url}
+                    className="relative flex flex-col items-center gap-1 px-4 py-2 min-w-[64px] transition-all duration-200 group"
+                  >
+                    {/* Modern Pill-Shaped Active State */}
+                    {isActive && (
+                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl transition-all duration-200" />
+                    )}
+                    
+                    {/* Icon with proper sizing (24×24px - iOS/Android standard) */}
+                    <div className="relative z-10">
+                      <Icon 
+                        className={`w-6 h-6 transition-all duration-200 ${
+                          isActive 
+                            ? 'text-emerald-600 scale-105' 
+                            : 'text-slate-400 group-hover:text-slate-600'
+                        }`} 
+                        strokeWidth={isActive ? 2.5 : 2}
+                      />
+                    </div>
+                    
+                    {/* Label - Only show on active (modern pattern) */}
+                    {isActive && (
+                      <span className="relative z-10 text-[11px] font-semibold text-emerald-700 tracking-tight animate-in fade-in slide-in-from-bottom-1 duration-200">
+                        {item.name}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
       </nav>
