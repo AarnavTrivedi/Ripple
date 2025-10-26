@@ -1,51 +1,135 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from "react-leaflet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Navigation, Plus, X, AlertTriangle, Calendar, Search } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Navigation, Plus, X, AlertTriangle, Calendar,
+  MapPin, Activity, Car, Bike, Train, Footprints,
+  Layers, Eye, EyeOff, Route, Zap, Search
+} from "lucide-react";
 import L from "leaflet";
-import { format } from "date-fns";
+import { format, differenceInMinutes } from "date-fns";
 import "leaflet/dist/leaflet.css";
 
-function LocationMarker({ position }) {
+// Ensure Leaflet.heat is loaded. In a real-world project, you'd typically import it:
+// import 'leaflet.heat'; // If installed via npm and configured with webpack/rollup
+// Or include it via a script tag in your HTML.
+// For this implementation, we assume `window.L.heatLayer` is available.
+
+const HeatmapLayer = ({ points, intensity = 0.5 }) => {
+  const map = useMap();
+  const heatLayerRef = useRef(null);
+
+  useEffect(() => {
+    // Dynamically load Leaflet.heat if not already present
+    if (!window.L || !window.L.heatLayer) {
+      console.warn("Leaflet.heat plugin not loaded. Heatmap layer will not render.");
+      // You might want to implement a dynamic script loader here if this is a common issue.
+      return;
+    }
+
+    if (heatLayerRef.current) {
+      map.removeLayer(heatLayerRef.current);
+    }
+
+    if (points && points.length > 0) {
+      const heatLayer = window.L.heatLayer(points, {
+        radius: 25,
+        blur: 15,
+        maxZoom: 17,
+        max: 1.0,
+        gradient: {
+          0.0: '#ff0000',
+          0.3: '#ff6600',
+          0.5: '#ffff00',
+          0.7: '#90ee90',
+          1.0: '#10b981'
+        }
+      });
+      heatLayer.addTo(map);
+      heatLayerRef.current = heatLayer;
+    }
+
+    return () => {
+      if (heatLayerRef.current) {
+        map.removeLayer(heatLayerRef.current);
+      }
+    };
+  }, [map, points, intensity]);
+
+  return null;
+};
+
+const LocationMarker = ({ position, accuracy }) => {
   const map = useMap();
 
   useEffect(() => {
     if (position) {
-      map.flyTo(position, 13);
+      map.flyTo(position, map.getZoom(), { animate: true, duration: 0.5 });
     }
   }, [position, map]);
 
   if (!position) return null;
 
   return (
-    <Circle
-      center={position}
-      radius={100}
-      pathOptions={{
-        color: '#10b981',
-        fillColor: '#10b981',
-        fillOpacity: 0.3
-      }}
-    />
+    <>
+      <Circle
+        center={position}
+        radius={accuracy || 100}
+        pathOptions={{
+          color: '#10b981',
+          fillColor: '#10b981',
+          fillOpacity: 0.1,
+          weight: 2
+        }}
+      />
+      <Circle
+        center={position}
+        radius={10}
+        pathOptions={{
+          color: '#10b981',
+          fillColor: '#10b981',
+          fillOpacity: 0.8,
+          weight: 3
+        }}
+      />
+    </>
   );
-}
+};
 
 export default function MapPage() {
   const queryClient = useQueryClient();
+
   const [userLocation, setUserLocation] = useState(null);
+  const [locationAccuracy, setLocationAccuracy] = useState(100);
+  const [routeHistory, setRouteHistory] = useState([]);
+  const [isTracking, setIsTracking] = useState(false);
+  const [currentTransportMode, setCurrentTransportMode] = useState('walking');
+  const [journeyStartTime, setJourneyStartTime] = useState(null);
+
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogType, setDialogType] = useState('waypoint');
+  const [showLayersSheet, setShowLayersSheet] = useState(false);
+  const [showTransportSheet, setShowTransportSheet] = useState(false);
+  const [showStatsOverlay, setShowStatsOverlay] = useState(true);
+
   const [showHazards, setShowHazards] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [showWaypoints, setShowWaypoints] = useState(true);
+  const [showGreenActions, setShowGreenActions] = useState(true);
+  const [showRouteHistory, setShowRouteHistory] = useState(true);
+
   const [addressSearch, setAddressSearch] = useState('');
   const [searchingAddress, setSearchingAddress] = useState(false);
-  
+
   const [newWaypoint, setNewWaypoint] = useState({
     name: '',
     description: '',
@@ -65,15 +149,74 @@ export default function MapPage() {
     address: ''
   });
 
+  const [journeyStats, setJourneyStats] = useState({
+    distance: 0, // in miles
+    carbonSaved: 0, // in kg CO2
+    duration: 0, // in minutes
+    ecoScore: 0
+  });
+
   useEffect(() => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
+      const watchId = navigator.geolocation.watchPosition(
         (position) => {
-          setUserLocation([position.coords.latitude, position.coords.longitude]);
+          const newLocation = [position.coords.latitude, position.coords.longitude];
+          const accuracy = position.coords.accuracy;
+
+          setUserLocation(newLocation);
+          setLocationAccuracy(accuracy);
+
+          if (isTracking && userLocation) {
+            setRouteHistory(prev => {
+              const updated = [...prev, newLocation];
+
+              if (prev.length > 0) {
+                const lastPoint = prev[prev.length - 1];
+                const distance = calculateDistance(
+                  lastPoint[0], lastPoint[1],
+                  newLocation[0], newLocation[1]
+                );
+
+                setJourneyStats(prevStats => {
+                  const newDistance = prevStats.distance + distance;
+                  const duration = journeyStartTime ?
+                    differenceInMinutes(new Date(), journeyStartTime) : 0;
+                  const carbonSaved = calculateCarbonSaved(newDistance, currentTransportMode);
+                  const ecoScore = calculateEcoScore(currentTransportMode, duration, carbonSaved);
+
+                  return {
+                    distance: newDistance,
+                    carbonSaved,
+                    duration,
+                    ecoScore
+                  };
+                });
+              }
+
+              return updated;
+            });
+          }
+
+          if (showAddDialog) {
+            if (dialogType === 'waypoint' && !newWaypoint.latitude) {
+              setNewWaypoint(prev => ({
+                ...prev,
+                latitude: newLocation[0],
+                longitude: newLocation[1]
+              }));
+            }
+            if (dialogType === 'volunteer' && !newVolunteerEvent.latitude) {
+              setNewVolunteerEvent(prev => ({
+                ...prev,
+                latitude: newLocation[0],
+                longitude: newLocation[1]
+              }));
+            }
+          }
         },
         (error) => {
           console.error("Location error:", error);
-          setUserLocation([37.5407, -77.4360]);
+          setUserLocation([37.5407, -77.4360]); // Default to Richmond, VA
         },
         {
           enableHighAccuracy: true,
@@ -81,8 +224,10 @@ export default function MapPage() {
           maximumAge: 0
         }
       );
+
+      return () => navigator.geolocation.clearWatch(watchId);
     }
-  }, []);
+  }, [isTracking, userLocation, currentTransportMode, journeyStartTime, showAddDialog, dialogType, newWaypoint.latitude, newVolunteerEvent.latitude]);
 
   const { data: waypoints } = useQuery({
     queryKey: ['waypoints'],
@@ -101,6 +246,93 @@ export default function MapPage() {
     queryFn: () => base44.entities.HazardZone.list(),
     initialData: [],
   });
+
+  // Haversine formula to calculate distance between two lat/lon points (in miles)
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 3959; // Earth's radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const calculateCarbonSaved = (distanceMiles, transportMode) => {
+    // Average CO2 emissions per passenger mile (kg CO2)
+    // Driving: 0.404 kg/mile (avg car)
+    // Public Transport (bus/train): ~0.14 kg/mile (varies widely)
+    // Walking/Cycling: 0 kg/mile (direct emissions)
+    const emissionFactors = {
+      walking: 0,
+      cycling: 0,
+      public_transport: 0.14,
+      driving: 0.404,
+    };
+
+    const carEmissionsPerMile = emissionFactors.driving; // Baseline if driving
+    const modeEmissionsPerMile = emissionFactors[transportMode] || 0; // Emissions for chosen mode
+
+    // Carbon saved is the difference if you chose a greener mode over driving
+    const savedPerMile = carEmissionsPerMile - modeEmissionsPerMile;
+
+    return Math.max(0, savedPerMile * distanceMiles); // Ensure saved carbon is not negative
+  };
+
+  const calculateEcoScore = (transportMode, durationMinutes, carbonSaved) => {
+    // Base scores for different transport modes
+    const modeBaseScores = {
+      walking: 100,
+      cycling: 95,
+      public_transport: 75,
+      driving: 30, // Penalize driving significantly
+    };
+
+    let baseScore = modeBaseScores[transportMode] || 50; // Default if mode is unknown
+
+    // Duration bonus (max 20 points for longer journeys, e.g., 40 mins * 0.5)
+    const durationBonus = Math.min(durationMinutes * 0.5, 20);
+
+    // Carbon saved bonus (max 30 points, e.g., 3 kg saved * 10)
+    const carbonSavedBonus = Math.min(carbonSaved * 10, 30);
+
+    let finalScore = baseScore + durationBonus + carbonSavedBonus;
+
+    // Cap the score at 100
+    return Math.min(100, Math.round(finalScore));
+  };
+
+  const heatmapData = useMemo(() => {
+    if (!showHeatmap || !window.L || !window.L.heatLayer) return [];
+
+    const points = [];
+
+    waypoints.forEach(waypoint => {
+      if (waypoint.latitude && waypoint.longitude) {
+        // Eco-rating determines intensity (higher rating = more "eco" or positive intensity)
+        const intensity = (waypoint.eco_rating || 70) / 100; // Scale 0-1
+        points.push([waypoint.latitude, waypoint.longitude, intensity]);
+      }
+    });
+
+    greenActions.forEach(action => {
+      if (action.latitude && action.longitude && !action.completed) {
+        // Green actions are high intensity points
+        points.push([action.latitude, action.longitude, 0.9]);
+      }
+    });
+
+    hazards.forEach(hazard => {
+      if (hazard.latitude && hazard.longitude) {
+        // Hazard zones could be inverse intensity (higher hazard = lower "eco" intensity)
+        const intensity = 1 - (hazard.hazard_level / 100); // Scale 0-1
+        points.push([hazard.latitude, hazard.longitude, intensity]);
+      }
+    });
+
+    return points;
+  }, [waypoints, greenActions, hazards, showHeatmap]);
 
   const createWaypointMutation = useMutation({
     mutationFn: (data) => base44.entities.EcoWaypoint.create(data),
@@ -138,14 +370,14 @@ export default function MapPage() {
 
   const handleSearchAddress = async () => {
     if (!addressSearch) return;
-    
+
     setSearchingAddress(true);
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressSearch)}, Virginia`
       );
       const data = await response.json();
-      
+
       if (data && data.length > 0) {
         const location = data[0];
         if (dialogType === 'volunteer') {
@@ -175,25 +407,25 @@ export default function MapPage() {
 
   const handleAddWaypoint = (e) => {
     e.preventDefault();
-    
+
     const lat = newWaypoint.latitude || userLocation[0];
     const lon = newWaypoint.longitude || userLocation[1];
-    
+
     createWaypointMutation.mutate({
       ...newWaypoint,
       latitude: lat,
       longitude: lon,
       is_user_created: true,
-      eco_rating: 85
+      eco_rating: 85 // Default rating for user-created
     });
   };
 
   const handleAddVolunteer = (e) => {
     e.preventDefault();
-    
+
     const lat = newVolunteerEvent.latitude || userLocation[0];
     const lon = newVolunteerEvent.longitude || userLocation[1];
-    
+
     createVolunteerMutation.mutate({
       title: newVolunteerEvent.title,
       description: newVolunteerEvent.description,
@@ -206,6 +438,34 @@ export default function MapPage() {
     });
   };
 
+  const handleStartJourney = () => {
+    setIsTracking(true);
+    setJourneyStartTime(new Date());
+    setRouteHistory(userLocation ? [userLocation] : []);
+    setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
+    setShowTransportSheet(true); // Automatically open sheet to select mode
+    setShowStatsOverlay(true); // Ensure stats are visible
+  };
+
+  const handleStopJourney = () => {
+    setIsTracking(false);
+    setShowTransportSheet(false);
+
+    if (journeyStats.distance > 0) {
+      // Here you could save the journeyStats to your backend or display a summary modal
+      console.log('Journey completed:', journeyStats);
+      alert(`Journey Summary:\nDistance: ${journeyStats.distance.toFixed(2)} miles\nCarbon Saved: ${journeyStats.carbonSaved.toFixed(2)} kg CO2\nDuration: ${journeyStats.duration} minutes\nEco Score: ${journeyStats.ecoScore}`);
+    }
+    // Reset journey stats for next journey
+    setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
+    setRouteHistory([]);
+  };
+
+  const handleChangeTransportMode = (mode) => {
+    setCurrentTransportMode(mode);
+    setShowTransportSheet(false);
+  };
+
   const getMarkerIcon = (type, isGreenAction = false) => {
     const colors = {
       recycling_center: '#10b981',
@@ -215,10 +475,10 @@ export default function MapPage() {
       community_garden: '#84cc16',
       water_refill: '#06b6d4',
       eco_store: '#f59e0b',
-      green_action: '#fbbf24'
+      green_action: '#fbbf24' // A distinct color for green actions
     };
 
-    const color = isGreenAction ? colors.green_action : (colors[type] || '#10b981');
+    const color = isGreenAction ? colors.green_action : (colors[type] || '#10b981'); // Default to green
 
     return new L.Icon({
       iconUrl: `data:image/svg+xml,${encodeURIComponent(`
@@ -227,14 +487,23 @@ export default function MapPage() {
         </svg>
       `)}`,
       iconSize: [32, 32],
-      iconAnchor: [16, 32],
-      popupAnchor: [0, -32]
+      iconAnchor: [16, 32], // Point of the icon which will correspond to marker's location
+      popupAnchor: [0, -32] // Point from which the popup should open relative to the iconAnchor
     });
   };
 
+  const transportIcons = {
+    walking: Footprints,
+    cycling: Bike,
+    public_transport: Train,
+    driving: Car
+  };
+
+  const TransportIcon = transportIcons[currentTransportMode] || Footprints; // Default icon if mode is not found
+
   if (!userLocation) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[#0d3f2b]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-white">Getting your location...</p>
@@ -244,23 +513,26 @@ export default function MapPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <div className="bg-[#0f5132]/95 backdrop-blur border-b border-emerald-500/20 px-6 py-4 z-[1001]">
+    <div className="h-screen flex flex-col relative overflow-hidden">
+      <div className="bg-[#0f5132]/95 backdrop-blur border-b border-emerald-500/20 px-4 py-3 z-[1001]">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">Eco Map</h1>
+          <div className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-emerald-400" />
+            <h1 className="text-lg font-bold text-white">Eco Map</h1>
+          </div>
           <div className="flex gap-2">
             <Button
               size="sm"
-              variant={showHazards ? "default" : "outline"}
-              className={showHazards ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30"}
-              onClick={() => setShowHazards(!showHazards)}
+              variant="outline"
+              className="border-emerald-500/30 h-8 px-2 text-white hover:text-white hover:bg-emerald-500/20"
+              onClick={() => setShowLayersSheet(true)}
             >
-              <AlertTriangle className="w-4 h-4 mr-1" />
-              Hazards
+              <Layers className="w-4 h-4 mr-1" />
+              Layers
             </Button>
             <Button
               size="sm"
-              className="bg-emerald-500 hover:bg-emerald-600"
+              className="bg-emerald-500 hover:bg-emerald-600 h-8 px-2 text-white"
               onClick={() => {
                 setDialogType('waypoint');
                 setShowAddDialog(true);
@@ -268,17 +540,6 @@ export default function MapPage() {
             >
               <Plus className="w-4 h-4 mr-1" />
               Add Spot
-            </Button>
-            <Button
-              size="sm"
-              className="bg-amber-500 hover:bg-amber-600"
-              onClick={() => {
-                setDialogType('volunteer');
-                setShowAddDialog(true);
-              }}
-            >
-              <Calendar className="w-4 h-4 mr-1" />
-              Add Event
             </Button>
           </div>
         </div>
@@ -295,69 +556,323 @@ export default function MapPage() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; OpenStreetMap contributors'
           />
-          
-          <LocationMarker position={userLocation} />
 
-          {waypoints.map((waypoint) => (
+          {showHeatmap && heatmapData.length > 0 && window.L?.heatLayer && (
+            <HeatmapLayer points={heatmapData} intensity={0.6} />
+          )}
+
+          <LocationMarker position={userLocation} accuracy={locationAccuracy} />
+
+          {showRouteHistory && routeHistory.length > 1 && (
+            <Polyline
+              positions={routeHistory}
+              pathOptions={{
+                color: currentTransportMode === 'walking' ? '#10b981' :
+                       currentTransportMode === 'cycling' ? '#8b5cf6' :
+                       currentTransportMode === 'public_transport' ? '#3b82f6' : '#f59e0b',
+                weight: 4,
+                opacity: 0.7
+              }}
+            />
+          )}
+
+          {showWaypoints && waypoints.map((waypoint) => (
             <Marker
               key={waypoint.id}
               position={[waypoint.latitude, waypoint.longitude]}
               icon={getMarkerIcon(waypoint.type)}
             >
               <Popup>
-                <div>
-                  <h3 className="font-semibold">{waypoint.name}</h3>
-                  <p className="text-sm">{waypoint.description}</p>
-                  <p className="text-xs mt-1 capitalize">{waypoint.type.replace(/_/g, ' ')}</p>
+                <div className="min-w-[200px]">
+                  <h3 className="font-semibold text-base mb-1">{waypoint.name}</h3>
+                  <p className="text-sm text-gray-600 mb-2">{waypoint.description}</p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="capitalize text-emerald-600">
+                      {waypoint.type.replace(/_/g, ' ')}
+                    </span>
+                    <span className="text-emerald-700 font-medium">
+                      ⭐ {waypoint.eco_rating || 85}/100
+                    </span>
+                  </div>
                 </div>
               </Popup>
             </Marker>
           ))}
 
-          {greenActions.filter(a => a.latitude && a.longitude).map((action) => (
+          {showGreenActions && greenActions.filter(a => a.latitude && a.longitude).map((action) => (
             <Marker
               key={action.id}
               position={[action.latitude, action.longitude]}
-              icon={getMarkerIcon(null, true)}
+              icon={getMarkerIcon(null, true)} // Pass true for isGreenAction
             >
               <Popup>
-                <div>
-                  <h3 className="font-semibold">{action.title}</h3>
-                  <p className="text-sm">{action.description}</p>
-                  <p className="text-xs mt-1">{format(new Date(action.date), 'MMM d, yyyy')}</p>
-                  {action.points_reward && (
-                    <p className="text-xs text-emerald-600 mt-1">+{action.points_reward} points</p>
-                  )}
+                <div className="min-w-[220px]">
+                  <h3 className="font-semibold text-base mb-1">{action.title}</h3>
+                  <p className="text-sm text-gray-600 mb-2">{action.description}</p>
+                  <div className="space-y-1 text-xs text-gray-500">
+                    <div>📅 {format(new Date(action.date), 'MMM d, yyyy, h:mm a')}</div>
+                    {action.points_reward && (
+                      <div className="text-emerald-600 font-semibold">
+                        🏆 +{action.points_reward} Eco Points
+                      </div>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </Marker>
           ))}
 
           {showHazards && hazards.map((hazard) => {
-            const color = hazard.hazard_level > 60 ? '#ef4444' : hazard.hazard_level > 40 ? '#f59e0b' : '#fbbf24';
+            const color = hazard.hazard_level > 60 ? '#ef4444' :
+                          hazard.hazard_level > 40 ? '#f59e0b' : '#fbbf24';
             return (
               <Circle
                 key={hazard.id}
                 center={[hazard.latitude, hazard.longitude]}
-                radius={hazard.hazard_level * 10}
+                radius={hazard.hazard_level * 10} // Radius scales with hazard level
                 pathOptions={{
                   color: color,
                   fillColor: color,
-                  fillOpacity: 0.2
+                  fillOpacity: 0.2,
+                  weight: 2
                 }}
               >
                 <Popup>
-                  <div>
-                    <h3 className="font-semibold">{hazard.name}</h3>
-                    <p className="text-sm">{hazard.description}</p>
-                    <p className="text-xs mt-1">Level: {hazard.hazard_level}/100</p>
+                  <div className="min-w-[180px]">
+                    <h3 className="font-semibold text-base mb-1">⚠️ {hazard.name}</h3>
+                    <p className="text-sm text-gray-600 mb-2">{hazard.description}</p>
+                    <div className="text-xs">
+                      <span className="font-medium">Hazard Level:</span>
+                      <span className={`ml-1 font-bold ${
+                        hazard.hazard_level > 60 ? 'text-red-600' :
+                        hazard.hazard_level > 40 ? 'text-orange-600' : 'text-yellow-600'
+                      }`}>
+                        {hazard.hazard_level}/100
+                      </span>
+                    </div>
                   </div>
                 </Popup>
               </Circle>
             );
           })}
         </MapContainer>
+
+        {isTracking && showStatsOverlay && (
+          <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur border-emerald-500/30 z-[1000] p-3 shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-400" />
+                <span className="text-white font-semibold text-sm">Journey Active</span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0 text-emerald-400 hover:bg-emerald-500/20"
+                onClick={() => setShowStatsOverlay(false)}
+              >
+                <EyeOff className="w-3 h-3" />
+              </Button>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="text-center">
+                <div className="text-emerald-200/60 text-[10px] uppercase">Distance</div>
+                <div className="text-white font-bold text-sm">
+                  {journeyStats.distance.toFixed(2)}mi
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-emerald-200/60 text-[10px] uppercase">CO₂ Saved</div>
+                <div className="text-white font-bold text-sm">
+                  {journeyStats.carbonSaved.toFixed(2)}kg
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-emerald-200/60 text-[10px] uppercase">Time</div>
+                <div className="text-white font-bold text-sm">
+                  {journeyStats.duration}min
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-emerald-200/60 text-[10px] uppercase">Score</div>
+                <div className="text-white font-bold text-sm">
+                  {journeyStats.ecoScore}
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {isTracking && !showStatsOverlay && (
+          <Button
+            size="sm"
+            className="absolute top-4 left-4 z-[1000] bg-emerald-500/90 hover:bg-emerald-600 text-white shadow-lg"
+            onClick={() => setShowStatsOverlay(true)}
+          >
+            <Eye className="w-4 h-4" />
+          </Button>
+        )}
+
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1000] flex gap-2">
+          {!isTracking ? (
+            <Button
+              size="lg"
+              className="bg-emerald-500 hover:bg-emerald-600 shadow-lg text-white"
+              onClick={handleStartJourney}
+            >
+              <Route className="w-5 h-5 mr-2" />
+              Start Journey
+            </Button>
+          ) : (
+            <>
+              <Button
+                size="lg"
+                variant="outline"
+                className="bg-white/90 hover:bg-white border-emerald-500/30 text-emerald-700 shadow-lg"
+                onClick={() => setShowTransportSheet(true)}
+              >
+                <TransportIcon className="w-5 h-5" />
+              </Button>
+              <Button
+                size="lg"
+                className="bg-red-500 hover:bg-red-600 shadow-lg text-white"
+                onClick={handleStopJourney}
+              >
+                <X className="w-5 h-5 mr-2" />
+                Stop Journey
+              </Button>
+            </>
+          )}
+        </div>
       </div>
+
+      <Sheet open={showTransportSheet} onOpenChange={setShowTransportSheet}>
+        <SheetContent side="bottom" className="bg-[#0f5132] border-emerald-500/30 text-white">
+          <SheetHeader>
+            <SheetTitle className="text-white">Select Transport Mode</SheetTitle>
+          </SheetHeader>
+          <div className="grid grid-cols-2 gap-3 mt-6 pb-6">
+            {[
+              { mode: 'walking', icon: Footprints, label: 'Walking' },
+              { mode: 'cycling', icon: Bike, label: 'Cycling' },
+              { mode: 'public_transport', icon: Train, label: 'Public Transit' },
+              { mode: 'driving', icon: Car, label: 'Driving' }
+            ].map(({ mode, icon: Icon, label }) => (
+              <Button
+                key={mode}
+                variant={currentTransportMode === mode ? "default" : "outline"}
+                className={`h-24 flex flex-col gap-2 ${
+                  currentTransportMode === mode
+                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                    : 'border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20'
+                }`}
+                onClick={() => handleChangeTransportMode(mode)}
+              >
+                <Icon className="w-8 h-8" />
+                <span className="text-sm font-medium">{label}</span>
+              </Button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={showLayersSheet} onOpenChange={setShowLayersSheet}>
+        <SheetContent side="bottom" className="bg-[#0f5132] border-emerald-500/30 text-white">
+          <SheetHeader>
+            <SheetTitle className="text-white">Map Layers</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 mt-6 pb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Activity className="w-5 h-5 text-emerald-400" />
+                <span className="text-white font-medium">Heatmap</span>
+              </div>
+              <Button
+                size="sm"
+                variant={showHeatmap ? "default" : "outline"}
+                className={showHeatmap ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowHeatmap(!showHeatmap)}
+              >
+                {showHeatmap ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <MapPin className="w-5 h-5 text-emerald-400" />
+                <span className="text-white font-medium">Eco Waypoints</span>
+              </div>
+              <Button
+                size="sm"
+                variant={showWaypoints ? "default" : "outline"}
+                className={showWaypoints ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowWaypoints(!showWaypoints)}
+              >
+                {showWaypoints ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Zap className="w-5 h-5 text-amber-400" />
+                <span className="text-white font-medium">Green Actions</span>
+              </div>
+              <Button
+                size="sm"
+                variant={showGreenActions ? "default" : "outline"}
+                className={showGreenActions ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowGreenActions(!showGreenActions)}
+              >
+                {showGreenActions ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+                <span className="text-white font-medium">Hazard Zones</span>
+              </div>
+              <Button
+                size="sm"
+                variant={showHazards ? "default" : "outline"}
+                className={showHazards ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowHazards(!showHazards)}
+              >
+                {showHazards ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Route className="w-5 h-5 text-purple-400" />
+                <span className="text-white font-medium">Route History</span>
+              </div>
+              <Button
+                size="sm"
+                variant={showRouteHistory ? "default" : "outline"}
+                className={showRouteHistory ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowRouteHistory(!showRouteHistory)}
+              >
+                {showRouteHistory ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            <div className="pt-4 border-t border-emerald-500/20">
+              <Button
+                size="sm"
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                onClick={() => {
+                  setShowLayersSheet(false); // Close layers sheet
+                  setDialogType('volunteer');
+                  setShowAddDialog(true); // Open add event dialog
+                }}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Add Volunteer Event
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {showAddDialog && (
         <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-4">
@@ -389,13 +904,13 @@ export default function MapPage() {
                     value={addressSearch}
                     onChange={(e) => setAddressSearch(e.target.value)}
                     placeholder="Enter address in Virginia..."
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                   />
                   <Button
                     size="sm"
                     onClick={handleSearchAddress}
                     disabled={searchingAddress}
-                    className="bg-emerald-500 hover:bg-emerald-600"
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white"
                   >
                     {searchingAddress ? (
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -419,7 +934,7 @@ export default function MapPage() {
                   <Input
                     value={newWaypoint.name}
                     onChange={(e) => setNewWaypoint({...newWaypoint, name: e.target.value})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                     required
                   />
                 </div>
@@ -429,21 +944,21 @@ export default function MapPage() {
                   <Textarea
                     value={newWaypoint.description}
                     onChange={(e) => setNewWaypoint({...newWaypoint, description: e.target.value})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                     rows={3}
                   />
                 </div>
 
                 <div>
                   <Label className="text-white">Type</Label>
-                  <Select 
-                    value={newWaypoint.type} 
+                  <Select
+                    value={newWaypoint.type}
                     onValueChange={(value) => setNewWaypoint({...newWaypoint, type: value})}
                   >
                     <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30">
+                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                       <SelectItem value="park">Park</SelectItem>
                       <SelectItem value="recycling_center">Recycling Center</SelectItem>
                       <SelectItem value="charging_station">EV Charging</SelectItem>
@@ -457,7 +972,7 @@ export default function MapPage() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-emerald-500 hover:bg-emerald-600"
+                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
                   disabled={createWaypointMutation.isPending}
                 >
                   {createWaypointMutation.isPending ? 'Adding...' : 'Add Eco Spot'}
@@ -470,7 +985,7 @@ export default function MapPage() {
                   <Input
                     value={newVolunteerEvent.title}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, title: e.target.value})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                     placeholder="e.g., Beach Cleanup at Virginia Beach"
                     required
                   />
@@ -481,7 +996,7 @@ export default function MapPage() {
                   <Textarea
                     value={newVolunteerEvent.description}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, description: e.target.value})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                     placeholder="Describe the volunteer opportunity..."
                     rows={3}
                     required
@@ -490,14 +1005,14 @@ export default function MapPage() {
 
                 <div>
                   <Label className="text-white">Event Type</Label>
-                  <Select 
-                    value={newVolunteerEvent.action_type} 
+                  <Select
+                    value={newVolunteerEvent.action_type}
                     onValueChange={(value) => setNewVolunteerEvent({...newVolunteerEvent, action_type: value})}
                   >
                     <SelectTrigger className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30">
+                    <SelectContent className="bg-[#1e4d3a] border-emerald-500/30 text-white">
                       <SelectItem value="volunteer">Volunteer</SelectItem>
                       <SelectItem value="plant_tree">Tree Planting</SelectItem>
                       <SelectItem value="cleanup_event">Cleanup Event</SelectItem>
@@ -524,8 +1039,8 @@ export default function MapPage() {
                   <Input
                     type="number"
                     value={newVolunteerEvent.points_reward}
-                    onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, points_reward: parseInt(e.target.value)})}
-                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                    onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, points_reward: parseInt(e.target.value) || 0})}
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                     min="10"
                     max="200"
                   />
@@ -533,7 +1048,7 @@ export default function MapPage() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-amber-500 hover:bg-amber-600"
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white"
                   disabled={createVolunteerMutation.isPending}
                 >
                   {createVolunteerMutation.isPending ? 'Creating...' : 'Create Event'}
