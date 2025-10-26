@@ -32,7 +32,7 @@ const LocationMarker = ({ position, accuracy }) => {
 
   useEffect(() => {
     if (position) {
-      map.setView(position, map.getZoom());
+      map.setView(position, 14);
     }
   }, [position, map]);
 
@@ -70,7 +70,6 @@ const HeatmapLayer = ({ waypoints, greenActions, enabled }) => {
   useEffect(() => {
     if (!map || !enabled) return;
 
-    // Create heatmap points from waypoints and green actions
     const points = [];
     
     waypoints.forEach(wp => {
@@ -88,7 +87,6 @@ const HeatmapLayer = ({ waypoints, greenActions, enabled }) => {
 
     if (points.length === 0) return;
 
-    // Create custom heatmap using CircleMarkers as fallback
     const circles = points.map(([lat, lng, intensity]) => {
       return L.circle([lat, lng], {
         radius: 200,
@@ -112,6 +110,7 @@ export default function MapPage() {
   
   const [userLocation, setUserLocation] = useState(null);
   const [locationAccuracy, setLocationAccuracy] = useState(100);
+  const [locationError, setLocationError] = useState(null);
   const [routeHistory, setRouteHistory] = useState([]);
   const [isTracking, setIsTracking] = useState(false);
   const [currentTransportMode, setCurrentTransportMode] = useState('walking');
@@ -132,7 +131,7 @@ export default function MapPage() {
   
   const [addressSearch, setAddressSearch] = useState('');
   const [searchingAddress, setSearchingAddress] = useState(false);
-  const [locationName, setLocationName] = useState("Your Area");
+  const [locationName, setLocationName] = useState("Finding your location...");
 
   const [newWaypoint, setNewWaypoint] = useState({
     name: '',
@@ -173,30 +172,40 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      console.warn("Geolocation is not supported or available.");
-      setUserLocation([37.5407, -77.4360]);
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser");
+      console.error("Geolocation not supported");
       return;
     }
+
+    console.log("Starting location tracking...");
 
     const watchId = navigator.geolocation.watchPosition(
       async (position) => {
         const newLocation = [position.coords.latitude, position.coords.longitude];
         const accuracy = position.coords.accuracy;
         
+        console.log("Got location:", newLocation, "accuracy:", accuracy);
+        
         setUserLocation(newLocation);
         setLocationAccuracy(accuracy);
+        setLocationError(null);
 
+        // Get location name from coordinates
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLocation[0]}&lon=${newLocation[1]}`
           );
           const data = await response.json();
-          setLocationName(data.address.county || data.address.city || data.address.state || "Your Area");
+          const name = data.address.city || data.address.town || data.address.county || data.address.state || "Your Location";
+          setLocationName(name);
+          console.log("Location name:", name);
         } catch (error) {
           console.error("Error getting location name:", error);
+          setLocationName("Your Location");
         }
         
+        // Update route history if tracking
         if (isTracking && routeHistory.length > 0) {
           const lastPoint = routeHistory[routeHistory.length - 1];
           const distance = calculateDistance(
@@ -226,7 +235,21 @@ export default function MapPage() {
       },
       (error) => {
         console.error("Location error:", error);
-        setUserLocation([37.5407, -77.4360]);
+        let errorMessage = "Unable to get your location";
+        
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied. Please enable location services.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out.";
+            break;
+        }
+        
+        setLocationError(errorMessage);
       },
       {
         enableHighAccuracy: true,
@@ -235,7 +258,10 @@ export default function MapPage() {
       }
     );
 
-    return () => navigator.geolocation.clearWatch(watchId);
+    return () => {
+      console.log("Stopping location tracking");
+      navigator.geolocation.clearWatch(watchId);
+    };
   }, [isTracking, routeHistory, currentTransportMode, journeyStartTime]);
 
   const { data: todayScore } = useQuery({
@@ -397,7 +423,7 @@ export default function MapPage() {
     setSearchingAddress(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressSearch)}, Virginia`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressSearch)}`
       );
       const data = await response.json();
       
@@ -511,7 +537,7 @@ export default function MapPage() {
 
   const handleStartJourney = () => {
     if (!userLocation) {
-      alert("Cannot start journey: Your location is not yet available.");
+      alert("Cannot start journey: Waiting for your location...");
       return;
     }
     
@@ -583,8 +609,16 @@ export default function MapPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 to-green-900">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white">Getting your location...</p>
+          <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white text-lg mb-2">{locationName}</p>
+          {locationError ? (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 max-w-md mx-auto">
+              <p className="text-red-200 text-sm">{locationError}</p>
+              <p className="text-red-300 text-xs mt-2">Please enable location services in your browser settings</p>
+            </div>
+          ) : (
+            <p className="text-emerald-200/60 text-sm">Make sure location services are enabled</p>
+          )}
         </div>
       </div>
     );
@@ -596,7 +630,10 @@ export default function MapPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MapPin className="w-5 h-5 text-emerald-400" />
-            <h1 className="text-lg font-bold text-white">Eco Map</h1>
+            <div>
+              <h1 className="text-lg font-bold text-white">Eco Map</h1>
+              <p className="text-xs text-emerald-200/60">{locationName}</p>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button
@@ -1050,7 +1087,7 @@ export default function MapPage() {
                   <Input
                     value={addressSearch}
                     onChange={(e) => setAddressSearch(e.target.value)}
-                    placeholder="Enter address in Virginia..."
+                    placeholder="Enter address..."
                     className="bg-[#1e4d3a] border-emerald-500/30 text-white placeholder-emerald-300/70"
                   />
                   <Button
