@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; // Fixed import typo here
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,8 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Navigation, Plus, X, AlertTriangle, Calendar } from "lucide-react";
+import { Navigation, Plus, X, AlertTriangle, Calendar, Search } from "lucide-react";
 import L from "leaflet";
 import { format } from "date-fns";
 import "leaflet/dist/leaflet.css";
@@ -45,6 +43,8 @@ export default function MapPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogType, setDialogType] = useState('waypoint');
   const [showHazards, setShowHazards] = useState(true);
+  const [addressSearch, setAddressSearch] = useState('');
+  const [searchingAddress, setSearchingAddress] = useState(false);
   
   const [newWaypoint, setNewWaypoint] = useState({
     name: '',
@@ -61,31 +61,15 @@ export default function MapPage() {
     date: format(new Date(), 'yyyy-MM-dd'),
     points_reward: 50,
     latitude: null,
-    longitude: null
+    longitude: null,
+    address: ''
   });
 
   useEffect(() => {
     if (navigator.geolocation) {
-      const watchId = navigator.geolocation.watchPosition(
+      navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation([position.coords.latitude, position.coords.longitude]);
-          
-          if (showAddDialog) {
-            if (dialogType === 'waypoint' && !newWaypoint.latitude) {
-              setNewWaypoint(prev => ({
-                ...prev,
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude
-              }));
-            }
-            if (dialogType === 'volunteer' && !newVolunteerEvent.latitude) {
-              setNewVolunteerEvent(prev => ({
-                ...prev,
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude
-              }));
-            }
-          }
         },
         (error) => {
           console.error("Location error:", error);
@@ -97,10 +81,8 @@ export default function MapPage() {
           maximumAge: 0
         }
       );
-
-      return () => navigator.geolocation.clearWatch(watchId);
     }
-  }, [showAddDialog, dialogType, newWaypoint.latitude, newVolunteerEvent.latitude]);
+  }, []);
 
   const { data: waypoints } = useQuery({
     queryKey: ['waypoints'],
@@ -147,15 +129,60 @@ export default function MapPage() {
         date: format(new Date(), 'yyyy-MM-dd'),
         points_reward: 50,
         latitude: null,
-        longitude: null
+        longitude: null,
+        address: ''
       });
+      setAddressSearch('');
     },
   });
 
+  const handleSearchAddress = async () => {
+    if (!addressSearch) return;
+    
+    setSearchingAddress(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressSearch)}, Virginia`
+      );
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        const location = data[0];
+        if (dialogType === 'volunteer') {
+          setNewVolunteerEvent(prev => ({
+            ...prev,
+            latitude: parseFloat(location.lat),
+            longitude: parseFloat(location.lon),
+            address: location.display_name
+          }));
+        } else {
+          setNewWaypoint(prev => ({
+            ...prev,
+            latitude: parseFloat(location.lat),
+            longitude: parseFloat(location.lon)
+          }));
+        }
+      } else {
+        alert('Address not found. Please try a different address.');
+      }
+    } catch (error) {
+      console.error("Error searching address:", error);
+      alert('Error searching address. Please try again.');
+    } finally {
+      setSearchingAddress(false);
+    }
+  };
+
   const handleAddWaypoint = (e) => {
     e.preventDefault();
+    
+    const lat = newWaypoint.latitude || userLocation[0];
+    const lon = newWaypoint.longitude || userLocation[1];
+    
     createWaypointMutation.mutate({
       ...newWaypoint,
+      latitude: lat,
+      longitude: lon,
       is_user_created: true,
       eco_rating: 85
     });
@@ -163,8 +190,18 @@ export default function MapPage() {
 
   const handleAddVolunteer = (e) => {
     e.preventDefault();
+    
+    const lat = newVolunteerEvent.latitude || userLocation[0];
+    const lon = newVolunteerEvent.longitude || userLocation[1];
+    
     createVolunteerMutation.mutate({
-      ...newVolunteerEvent,
+      title: newVolunteerEvent.title,
+      description: newVolunteerEvent.description,
+      action_type: newVolunteerEvent.action_type,
+      date: newVolunteerEvent.date,
+      points_reward: newVolunteerEvent.points_reward,
+      latitude: lat,
+      longitude: lon,
       completed: false
     });
   };
@@ -208,7 +245,6 @@ export default function MapPage() {
 
   return (
     <div className="h-screen flex flex-col">
-      {/* Header */}
       <div className="bg-[#0f5132]/95 backdrop-blur border-b border-emerald-500/20 px-6 py-4 z-[1001]">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-white">Eco Map</h1>
@@ -248,7 +284,6 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* Map */}
       <div className="flex-1 relative">
         <MapContainer
           center={userLocation}
@@ -324,7 +359,6 @@ export default function MapPage() {
         </MapContainer>
       </div>
 
-      {/* Add Dialog */}
       {showAddDialog && (
         <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-4">
           <Card className="bg-[#0f5132] border-emerald-500/30 p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
@@ -335,12 +369,48 @@ export default function MapPage() {
               <Button
                 size="icon"
                 variant="ghost"
-                onClick={() => setShowAddDialog(false)}
+                onClick={() => {
+                  setShowAddDialog(false);
+                  setAddressSearch('');
+                }}
                 className="text-white hover:bg-emerald-500/20"
               >
                 <X className="w-5 h-5" />
               </Button>
             </div>
+
+            {dialogType === 'volunteer' && (
+              <div className="mb-4 p-3 bg-emerald-900/30 border border-emerald-500/30 rounded-lg">
+                <p className="text-xs text-emerald-200/70 mb-2">
+                  📍 Enter an address or use your current location
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={addressSearch}
+                    onChange={(e) => setAddressSearch(e.target.value)}
+                    placeholder="Enter address in Virginia..."
+                    className="bg-[#1e4d3a] border-emerald-500/30 text-white"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSearchAddress}
+                    disabled={searchingAddress}
+                    className="bg-emerald-500 hover:bg-emerald-600"
+                  >
+                    {searchingAddress ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                {newVolunteerEvent.address && (
+                  <p className="text-xs text-emerald-300 mt-2">
+                    ✓ {newVolunteerEvent.address}
+                  </p>
+                )}
+              </div>
+            )}
 
             {dialogType === 'waypoint' ? (
               <form onSubmit={handleAddWaypoint} className="space-y-4">
@@ -385,10 +455,6 @@ export default function MapPage() {
                   </Select>
                 </div>
 
-                <div className="text-xs text-emerald-200/60">
-                  Location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
-                </div>
-
                 <Button
                   type="submit"
                   className="w-full bg-emerald-500 hover:bg-emerald-600"
@@ -400,7 +466,7 @@ export default function MapPage() {
             ) : (
               <form onSubmit={handleAddVolunteer} className="space-y-4">
                 <div>
-                  <Label className="text-white">Event Title</Label>
+                  <Label className="text-white">Event Title *</Label>
                   <Input
                     value={newVolunteerEvent.title}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, title: e.target.value})}
@@ -411,7 +477,7 @@ export default function MapPage() {
                 </div>
 
                 <div>
-                  <Label className="text-white">Description</Label>
+                  <Label className="text-white">Description *</Label>
                   <Textarea
                     value={newVolunteerEvent.description}
                     onChange={(e) => setNewVolunteerEvent({...newVolunteerEvent, description: e.target.value})}
@@ -443,7 +509,7 @@ export default function MapPage() {
                 </div>
 
                 <div>
-                  <Label className="text-white">Event Date</Label>
+                  <Label className="text-white">Event Date *</Label>
                   <Input
                     type="date"
                     value={newVolunteerEvent.date}
@@ -463,10 +529,6 @@ export default function MapPage() {
                     min="10"
                     max="200"
                   />
-                </div>
-
-                <div className="text-xs text-emerald-200/60">
-                  Location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
                 </div>
 
                 <Button
