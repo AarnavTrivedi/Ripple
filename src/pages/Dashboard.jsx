@@ -188,13 +188,22 @@ Return real headlines and summaries.`,
     const today = format(new Date(), 'yyyy-MM-dd');
     
     if (todayScore) {
+      // Add new activity to existing data
+      const updatedData = {
+        ...todayScore, // Preserve existing data
+        walking_minutes: (todayScore.walking_minutes || 0) + (activityData.walking_minutes || 0),
+        cycling_minutes: (todayScore.cycling_minutes || 0) + (activityData.cycling_minutes || 0),
+        public_transport_minutes: (todayScore.public_transport_minutes || 0) + (activityData.public_transport_minutes || 0),
+        driving_minutes: (todayScore.driving_minutes || 0) + (activityData.driving_minutes || 0),
+        green_actions_completed: (todayScore.green_actions_completed || 0) + (activityData.green_actions_completed || 0),
+        carbon_saved_kg: (todayScore.carbon_saved_kg || 0) + (activityData.carbon_saved_kg || 0),
+        score: activityData.score,
+        date: today
+      };
+      
       updateScoreMutation.mutate({
         id: todayScore.id,
-        data: {
-          ...todayScore, // Preserve existing data
-          ...activityData, // Apply new activity data
-          date: today // Ensure date is correct
-        }
+        data: updatedData
       });
     } else {
       createScoreMutation.mutate({
@@ -286,7 +295,11 @@ Return real headlines and summaries.`,
       </div>
 
       {todayScore && (
-        <ActivityLogger onLogActivity={handleLogActivity} currentScore={score} currentActivities={todayScore} />
+        <ActivityLogger 
+          onLogActivity={handleLogActivity} 
+          currentScore={score} 
+          currentActivities={todayScore} 
+        />
       )}
 
       <div className="px-6 pb-8 space-y-3">

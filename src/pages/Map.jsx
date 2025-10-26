@@ -418,20 +418,25 @@ export default function MapPage() {
     };
 
     if (todayScore) {
-      updateScoreMutation.mutate({
+      // Update existing score
+      const updatedData = {
+        ...todayScore,
+        walking_minutes: (todayScore.walking_minutes || 0) + transportMinutes.walking_minutes,
+        cycling_minutes: (todayScore.cycling_minutes || 0) + transportMinutes.cycling_minutes,
+        public_transport_minutes: (todayScore.public_transport_minutes || 0) + transportMinutes.public_transport_minutes,
+        driving_minutes: (todayScore.driving_minutes || 0) + transportMinutes.driving_minutes,
+        carbon_saved_kg: (todayScore.carbon_saved_kg || 0) + journeyStats.carbonSaved,
+        score: Math.min(100, (todayScore.score || 0) + Math.round(journeyStats.ecoScore / 2)),
+        date: today
+      };
+      
+      await updateScoreMutation.mutateAsync({
         id: todayScore.id,
-        data: {
-          ...todayScore,
-          walking_minutes: (todayScore.walking_minutes || 0) + transportMinutes.walking_minutes,
-          cycling_minutes: (todayScore.cycling_minutes || 0) + transportMinutes.cycling_minutes,
-          public_transport_minutes: (todayScore.public_transport_minutes || 0) + transportMinutes.public_transport_minutes,
-          driving_minutes: (todayScore.driving_minutes || 0) + transportMinutes.driving_minutes,
-          carbon_saved_kg: (todayScore.carbon_saved_kg || 0) + journeyStats.carbonSaved,
-          score: Math.min(100, (todayScore.score || 0) + Math.round(journeyStats.ecoScore / 2)),
-        }
+        data: updatedData
       });
     } else {
-      createScoreMutation.mutate({
+      // Create new score for today
+      await createScoreMutation.mutateAsync({
         date: today,
         score: journeyStats.ecoScore,
         ...transportMinutes,
@@ -448,7 +453,7 @@ export default function MapPage() {
     if (journeyStats.distance > 0) {
       await saveJourneyToDatabase();
       
-      alert(`Journey Complete! ✅\n\nDistance: ${journeyStats.distance.toFixed(2)} miles\nCO₂ Saved: ${journeyStats.carbonSaved.toFixed(2)} kg\nDuration: ${journeyStats.duration} min\nEco Score: ${journeyStats.ecoScore}/100\n\nYour activity has been saved to today's dashboard!`);
+      alert(`Journey Complete! ✅\n\nDistance: ${journeyStats.distance.toFixed(2)} miles\nCO₂ Saved: ${journeyStats.carbonSaved.toFixed(2)} kg\nDuration: ${journeyStats.duration} min\nEco Score: +${Math.round(journeyStats.ecoScore / 2)} points\n\nYour activity has been saved to today's dashboard!`);
     }
     
     setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
