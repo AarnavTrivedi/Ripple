@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -223,6 +224,54 @@ export default function MapPage() {
     },
   });
 
+  const createWaypointMutation = useMutation({
+    mutationFn: (data) => base44.entities.EcoWaypoint.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['waypoints'] });
+      setShowAddDialog(false);
+      setNewWaypoint({
+        name: '',
+        description: '',
+        type: 'park',
+        latitude: null,
+        longitude: null
+      });
+    },
+  });
+
+  const createVolunteerMutation = useMutation({
+    mutationFn: (data) => base44.entities.GreenAction.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['greenActions'] });
+      setShowAddDialog(false);
+      setNewVolunteerEvent({
+        title: '',
+        description: '',
+        action_type: 'volunteer',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        points_reward: 50,
+        latitude: null,
+        longitude: null,
+        address: ''
+      });
+      setAddressSearch('');
+    },
+  });
+
+  const deleteVolunteerMutation = useMutation({
+    mutationFn: (id) => base44.entities.GreenAction.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['greenActions'] });
+    },
+  });
+
+  const deleteWaypointMutation = useMutation({
+    mutationFn: (id) => base44.entities.EcoWaypoint.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['waypoints'] });
+    },
+  });
+
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 3959;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -264,39 +313,17 @@ export default function MapPage() {
     return Math.min(100, Math.round(baseScore + durationBonus + carbonBonus));
   };
 
-  const createWaypointMutation = useMutation({
-    mutationFn: (data) => base44.entities.EcoWaypoint.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['waypoints'] });
-      setShowAddDialog(false);
-      setNewWaypoint({
-        name: '',
-        description: '',
-        type: 'park',
-        latitude: null,
-        longitude: null
-      });
-    },
-  });
+  const handleDeleteVolunteer = async (eventId) => {
+    if (window.confirm('Are you sure you want to delete this volunteer event?')) {
+      deleteVolunteerMutation.mutate(eventId);
+    }
+  };
 
-  const createVolunteerMutation = useMutation({
-    mutationFn: (data) => base44.entities.GreenAction.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['greenActions'] });
-      setShowAddDialog(false);
-      setNewVolunteerEvent({
-        title: '',
-        description: '',
-        action_type: 'volunteer',
-        date: format(new Date(), 'yyyy-MM-dd'),
-        points_reward: 50,
-        latitude: null,
-        longitude: null,
-        address: ''
-      });
-      setAddressSearch('');
-    },
-  });
+  const handleDeleteWaypoint = async (waypointId) => {
+    if (window.confirm('Are you sure you want to delete this eco spot?')) {
+      deleteWaypointMutation.mutate(waypointId);
+    }
+  };
 
   const handleSearchAddress = async () => {
     if (!addressSearch) return;
@@ -549,7 +576,19 @@ export default function MapPage() {
             >
               <Popup>
                 <div className="min-w-[200px]">
-                  <h3 className="font-semibold text-base mb-1">{waypoint.name}</h3>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-base flex-1">{waypoint.name}</h3>
+                    {waypoint.created_by === currentUser?.email && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteWaypoint(waypoint.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-600 mb-2">{waypoint.description}</p>
                   <div className="flex items-center justify-between text-xs">
                     <span className="capitalize text-emerald-600">
@@ -559,6 +598,11 @@ export default function MapPage() {
                       ⭐ {waypoint.eco_rating || 85}/100
                     </span>
                   </div>
+                  {waypoint.created_by === currentUser?.email && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">Created by you</p>
+                    </div>
+                  )}
                 </div>
               </Popup>
             </Marker>
@@ -572,7 +616,19 @@ export default function MapPage() {
             >
               <Popup>
                 <div className="min-w-[220px]">
-                  <h3 className="font-semibold text-base mb-1">{action.title}</h3>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-semibold text-base flex-1">{action.title}</h3>
+                    {action.created_by === currentUser?.email && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteVolunteer(action.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-600 mb-2">{action.description}</p>
                   <div className="space-y-1 text-xs text-gray-500">
                     <div>📅 {format(new Date(action.date), 'MMM d, yyyy')}</div>
@@ -582,6 +638,11 @@ export default function MapPage() {
                       </div>
                     )}
                   </div>
+                  {action.created_by === currentUser?.email && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">Created by you</p>
+                    </div>
+                  )}
                 </div>
               </Popup>
             </Marker>
