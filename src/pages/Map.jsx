@@ -1,3 +1,4 @@
+
 /* eslint-disable react/prop-types */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
@@ -16,10 +17,18 @@ import {
   Layers, Eye, EyeOff, Route, Zap, Search, Flame
 } from "lucide-react";
 import L from "leaflet";
-import "leaflet.heat";
 import { format, differenceInMinutes } from "date-fns";
 import "leaflet/dist/leaflet.css";
 import EmissionsComparison from "../components/map/EmissionsComparison";
+
+// Initialize leaflet.heat dynamically to avoid SSR issues
+if (typeof window !== 'undefined' && L.heatLayer === undefined) {
+  import('leaflet.heat').then(() => {
+    // leaflet.heat is now loaded and available as L.heatLayer
+    // No need to explicitly set L.heatLayer, the import modifies L
+    console.log('Leaflet.heat loaded');
+  }).catch(error => console.error("Failed to load leaflet.heat:", error));
+}
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -69,7 +78,10 @@ const HeatmapLayer = ({ waypoints, greenActions }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (!map || (!waypoints.length && !greenActions.length)) return;
+    // Only attempt to create heat layer if L.heatLayer is available (meaning it's loaded)
+    if (!map || (!waypoints.length && !greenActions.length) || typeof L.heatLayer === 'undefined') {
+      return;
+    }
 
     const points = [];
     
@@ -175,66 +187,71 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => {
-    if (navigator.geolocation) {
-      const watchId = navigator.geolocation.watchPosition(
-        async (position) => {
-          const newLocation = [position.coords.latitude, position.coords.longitude];
-          const accuracy = position.coords.accuracy;
-          
-          setUserLocation(newLocation);
-          setLocationAccuracy(accuracy);
-
-          // Get location name
-          try {
-            const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLocation[0]}&lon=${newLocation[1]}`
-            );
-            const data = await response.json();
-            setLocationName(data.address.county || data.address.city || data.address.state || "Your Area");
-          } catch (error) {
-            console.error("Error getting location name:", error);
-          }
-          
-          if (isTracking && routeHistory.length > 0) {
-            const lastPoint = routeHistory[routeHistory.length - 1];
-            const distance = calculateDistance(
-              lastPoint[0], lastPoint[1],
-              newLocation[0], newLocation[1]
-            );
-            
-            if (distance > 0.001) {
-              setRouteHistory(prev => [...prev, newLocation]);
-              
-              setJourneyStats(prevStats => {
-                const newDistance = prevStats.distance + distance;
-                const carbonSaved = calculateCarbonSaved(newDistance, currentTransportMode);
-                const duration = journeyStartTime ? 
-                  differenceInMinutes(new Date(), journeyStartTime) : 0;
-                const ecoScore = calculateEcoScore(currentTransportMode, duration, carbonSaved);
-                
-                return {
-                  distance: newDistance,
-                  carbonSaved,
-                  duration,
-                  ecoScore
-                };
-              });
-            }
-          }
-        },
-        (error) => {
-          console.error("Location error:", error);
-          setUserLocation([37.5407, -77.4360]);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
-
-      return () => navigator.geolocation.clearWatch(watchId);
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      // Handle cases where geolocation is not available (e.g., SSR, unsupported browsers)
+      console.warn("Geolocation is not supported or available.");
+      setUserLocation([37.5407, -77.4360]); // Default to a central Virginia location
+      return;
     }
+
+    const watchId = navigator.geolocation.watchPosition(
+      async (position) => {
+        const newLocation = [position.coords.latitude, position.coords.longitude];
+        const accuracy = position.coords.accuracy;
+        
+        setUserLocation(newLocation);
+        setLocationAccuracy(accuracy);
+
+        // Get location name
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLocation[0]}&lon=${newLocation[1]}`
+          );
+          const data = await response.json();
+          setLocationName(data.address.county || data.address.city || data.address.state || "Your Area");
+        } catch (error) {
+          console.error("Error getting location name:", error);
+        }
+        
+        if (isTracking && routeHistory.length > 0) {
+          const lastPoint = routeHistory[routeHistory.length - 1];
+          const distance = calculateDistance(
+            lastPoint[0], lastPoint[1],
+            newLocation[0], newLocation[1]
+          );
+          
+          if (distance > 0.001) {
+            setRouteHistory(prev => [...prev, newLocation]);
+            
+            setJourneyStats(prevStats => {
+              const newDistance = prevStats.distance + distance;
+              const carbonSaved = calculateCarbonSaved(newDistance, currentTransportMode);
+              const duration = journeyStartTime ? 
+                differenceInMinutes(new Date(), journeyStartTime) : 0;
+              const ecoScore = calculateEcoScore(currentTransportMode, duration, carbonSaved);
+              
+              return {
+                distance: newDistance,
+                carbonSaved,
+                duration,
+                ecoScore
+              };
+            });
+          }
+        }
+      },
+      (error) => {
+        console.error("Location error:", error);
+        setUserLocation([37.5407, -77.4360]); // Default to a central Virginia location on error
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
   }, [isTracking, routeHistory, currentTransportMode, journeyStartTime]);
 
   const { data: todayScore } = useQuery({
@@ -338,7 +355,7 @@ export default function MapPage() {
   });
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 3959;
+    const R = 3959; // Radius of Earth in miles
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -350,13 +367,13 @@ export default function MapPage() {
 
   const calculateCarbonSaved = (distanceMiles, transportMode) => {
     const emissionFactors = {
-      walking: 0,
+      walking: 0, // kg CO2e per mile
       cycling: 0,
-      public_transport: 0.14,
-      driving: 0.404,
+      public_transport: 0.14, // Avg for US public transit (e.g., bus, rail)
+      driving: 0.404, // Avg for gasoline car (EPA, 2023)
     };
     
-    const carEmissions = 0.404;
+    const carEmissions = emissionFactors.driving; // Baseline comparison
     const modeEmissions = emissionFactors[transportMode] || 0;
     const savedPerMile = carEmissions - modeEmissions;
     
@@ -372,8 +389,8 @@ export default function MapPage() {
     };
     
     const baseScore = modeScores[transportMode] || 50;
-    const durationBonus = Math.min(durationMinutes * 0.5, 20);
-    const carbonBonus = Math.min(carbonSaved * 10, 30);
+    const durationBonus = Math.min(durationMinutes * 0.5, 20); // Max 20 points for duration
+    const carbonBonus = Math.min(carbonSaved * 10, 30); // Max 30 points for carbon saved (approx 3kg)
     
     return Math.min(100, Math.round(baseScore + durationBonus + carbonBonus));
   };
@@ -430,8 +447,14 @@ export default function MapPage() {
   const handleAddWaypoint = (e) => {
     e.preventDefault();
     
-    const lat = newWaypoint.latitude || userLocation[0];
-    const lon = newWaypoint.longitude || userLocation[1];
+    // Use user's current location if no specific coords from address search
+    const lat = newWaypoint.latitude || (userLocation ? userLocation[0] : null);
+    const lon = newWaypoint.longitude || (userLocation ? userLocation[1] : null);
+
+    if (lat === null || lon === null) {
+      alert("Could not determine location for the eco spot. Please ensure location services are enabled or search for an address.");
+      return;
+    }
     
     createWaypointMutation.mutate({
       ...newWaypoint,
@@ -445,8 +468,14 @@ export default function MapPage() {
   const handleAddVolunteer = (e) => {
     e.preventDefault();
     
-    const lat = newVolunteerEvent.latitude || userLocation[0];
-    const lon = newVolunteerEvent.longitude || userLocation[1];
+    // Use user's current location if no specific coords from address search
+    const lat = newVolunteerEvent.latitude || (userLocation ? userLocation[0] : null);
+    const lon = newVolunteerEvent.longitude || (userLocation ? userLocation[1] : null);
+
+    if (lat === null || lon === null) {
+      alert("Could not determine location for the volunteer event. Please ensure location services are enabled or search for an address.");
+      return;
+    }
     
     createVolunteerMutation.mutate({
       title: newVolunteerEvent.title,
@@ -499,7 +528,10 @@ export default function MapPage() {
   };
 
   const handleStartJourney = () => {
-    if (!userLocation) return;
+    if (!userLocation) {
+      alert("Cannot start journey: Your location is not yet available.");
+      return;
+    }
     
     setIsTracking(true);
     setJourneyStartTime(new Date());
@@ -517,6 +549,8 @@ export default function MapPage() {
       await saveJourneyToDatabase();
       
       alert(`Journey Complete! ✅\n\nDistance: ${journeyStats.distance.toFixed(2)} miles\nCO₂ Saved: ${journeyStats.carbonSaved.toFixed(2)} kg\nDuration: ${journeyStats.duration} min\nEco Score: +${Math.round(journeyStats.ecoScore / 2)} points\n\nYour activity has been saved to today's dashboard!`);
+    } else {
+      alert("Journey stopped. No significant distance traveled to save.");
     }
     
     setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
