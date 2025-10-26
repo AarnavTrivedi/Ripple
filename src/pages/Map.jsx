@@ -21,14 +21,8 @@ import { format, differenceInMinutes } from "date-fns";
 import "leaflet/dist/leaflet.css";
 import EmissionsComparison from "../components/map/EmissionsComparison";
 
-// Initialize leaflet.heat dynamically to avoid SSR issues
-if (typeof window !== 'undefined' && L.heatLayer === undefined) {
-  import('leaflet.heat').then(() => {
-    // leaflet.heat is now loaded and available as L.heatLayer
-    // No need to explicitly set L.heatLayer, the import modifies L
-    console.log('Leaflet.heat loaded');
-  }).catch(error => console.error("Failed to load leaflet.heat:", error));
-}
+// The dynamic import for 'leaflet.heat' is temporarily removed to address build errors
+// The heatmap functionality will be reintroduced in a future update.
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -75,47 +69,12 @@ const LocationMarker = ({ position, accuracy }) => {
 };
 
 const HeatmapLayer = ({ waypoints, greenActions }) => {
-  const map = useMap();
+  const map = useMap(); // Keep map for potential future use
 
   useEffect(() => {
-    // Only attempt to create heat layer if L.heatLayer is available (meaning it's loaded)
-    if (!map || (!waypoints.length && !greenActions.length) || typeof L.heatLayer === 'undefined') {
-      return;
-    }
-
-    const points = [];
-    
-    waypoints.forEach(wp => {
-      if (wp.latitude && wp.longitude) {
-        const intensity = (wp.eco_rating || 50) / 100;
-        points.push([wp.latitude, wp.longitude, intensity]);
-      }
-    });
-
-    greenActions.forEach(action => {
-      if (action.latitude && action.longitude) {
-        points.push([action.latitude, action.longitude, 0.8]);
-      }
-    });
-
-    if (points.length === 0) return;
-
-    const heatLayer = L.heatLayer(points, {
-      radius: 25,
-      blur: 15,
-      maxZoom: 17,
-      max: 1.0,
-      gradient: {
-        0.0: '#3b82f6',
-        0.5: '#10b981',
-        1.0: '#fbbf24'
-      }
-    }).addTo(map);
-
-    return () => {
-      map.removeLayer(heatLayer);
-    };
-  }, [map, waypoints, greenActions]);
+    // Heatmap temporarily disabled - will be added in future update
+    console.log('Heatmap data points:', waypoints.length + greenActions.length);
+  }, [map, waypoints, greenActions]); // Keep dependencies consistent for when it's re-enabled
 
   return null;
 };
@@ -142,7 +101,7 @@ export default function MapPage() {
   const [showWaypoints, setShowWaypoints] = useState(true);
   const [showGreenActions, setShowGreenActions] = useState(true);
   const [showRouteHistory, setShowRouteHistory] = useState(true);
-  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showHeatmap] = useState(false); // Temporarily disabled, will be enabled in a future update
   
   const [addressSearch, setAddressSearch] = useState('');
   const [searchingAddress, setSearchingAddress] = useState(false);
@@ -188,7 +147,6 @@ export default function MapPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      // Handle cases where geolocation is not available (e.g., SSR, unsupported browsers)
       console.warn("Geolocation is not supported or available.");
       setUserLocation([37.5407, -77.4360]); // Default to a central Virginia location
       return;
@@ -986,15 +944,15 @@ export default function MapPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Flame className="w-5 h-5 text-orange-400" />
-                <span className="text-white font-medium">Activity Heatmap</span>
+                <span className="text-white font-medium">Activity Heatmap (Disabled)</span> {/* Updated label for clarity */}
               </div>
               <Button
                 size="sm"
-                variant={showHeatmap ? "default" : "outline"}
-                className={showHeatmap ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
-                onClick={() => setShowHeatmap(!showHeatmap)}
+                variant="outline" // Always outline since it's disabled
+                className="border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20 opacity-50 cursor-not-allowed" // Styled as disabled
+                disabled // Explicitly disable the button
               >
-                {showHeatmap ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                <EyeOff className="w-4 h-4" /> {/* Always show EyeOff when disabled */}
               </Button>
             </div>
 
