@@ -18,51 +18,19 @@ import L from "leaflet";
 import { format, differenceInMinutes } from "date-fns";
 import "leaflet/dist/leaflet.css";
 
-const HeatmapLayer = ({ points, intensity = 0.5 }) => {
-  const map = useMap();
-  const heatLayerRef = useRef(null);
-
-  useEffect(() => {
-    if (!map || !window.L?.heatLayer) return;
-
-    if (heatLayerRef.current) {
-      map.removeLayer(heatLayerRef.current);
-    }
-
-    if (points && points.length > 0) {
-      const heatLayer = window.L.heatLayer(points, {
-        radius: 25,
-        blur: 15,
-        maxZoom: 17,
-        max: 1.0,
-        gradient: {
-          0.0: '#ff0000',
-          0.3: '#ff6600',
-          0.5: '#ffff00',
-          0.7: '#90ee90',
-          1.0: '#10b981'
-        }
-      });
-      heatLayer.addTo(map);
-      heatLayerRef.current = heatLayer;
-    }
-
-    return () => {
-      if (heatLayerRef.current) {
-        map.removeLayer(heatLayerRef.current);
-      }
-    };
-  }, [map, points, intensity]);
-
-  return null;
-};
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 const LocationMarker = ({ position, accuracy }) => {
   const map = useMap();
 
   useEffect(() => {
     if (position) {
-      map.flyTo(position, map.getZoom(), { animate: true, duration: 0.5 });
+      map.setView(position, map.getZoom());
     }
   }, [position, map]);
 
@@ -72,7 +40,7 @@ const LocationMarker = ({ position, accuracy }) => {
     <>
       <Circle
         center={position}
-        radius={accuracy || 100}
+        radius={accuracy || 50}
         pathOptions={{
           color: '#10b981',
           fillColor: '#10b981',
@@ -82,11 +50,11 @@ const LocationMarker = ({ position, accuracy }) => {
       />
       <Circle
         center={position}
-        radius={10}
+        radius={8}
         pathOptions={{
           color: '#10b981',
           fillColor: '#10b981',
-          fillOpacity: 0.8,
+          fillOpacity: 1,
           weight: 3
         }}
       />
@@ -96,6 +64,7 @@ const LocationMarker = ({ position, accuracy }) => {
 
 export default function MapPage() {
   const queryClient = useQueryClient();
+  const [currentUser, setCurrentUser] = useState(null);
   
   const [userLocation, setUserLocation] = useState(null);
   const [locationAccuracy, setLocationAccuracy] = useState(100);
@@ -111,7 +80,6 @@ export default function MapPage() {
   const [showStatsOverlay, setShowStatsOverlay] = useState(true);
   
   const [showHazards, setShowHazards] = useState(true);
-  const [showHeatmap, setShowHeatmap] = useState(true);
   const [showWaypoints, setShowWaypoints] = useState(true);
   const [showGreenActions, setShowGreenActions] = useState(true);
   const [showRouteHistory, setShowRouteHistory] = useState(true);
@@ -146,6 +114,18 @@ export default function MapPage() {
   });
 
   useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await base44.auth.me();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error("Error fetching user:", error);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
     if (navigator.geolocation) {
       const watchId = navigator.geolocation.watchPosition(
         (position) => {
@@ -155,51 +135,30 @@ export default function MapPage() {
           setUserLocation(newLocation);
           setLocationAccuracy(accuracy);
           
-          if (isTracking && userLocation) {
-            setRouteHistory(prev => {
-              const updated = [...prev, newLocation];
+          if (isTracking && routeHistory.length > 0) {
+            const lastPoint = routeHistory[routeHistory.length - 1];
+            const distance = calculateDistance(
+              lastPoint[0], lastPoint[1],
+              newLocation[0], newLocation[1]
+            );
+            
+            if (distance > 0.001) {
+              setRouteHistory(prev => [...prev, newLocation]);
               
-              if (prev.length > 0) {
-                const lastPoint = prev[prev.length - 1];
-                const distance = calculateDistance(
-                  lastPoint[0], lastPoint[1],
-                  newLocation[0], newLocation[1]
-                );
+              setJourneyStats(prevStats => {
+                const newDistance = prevStats.distance + distance;
+                const carbonSaved = calculateCarbonSaved(newDistance, currentTransportMode);
+                const duration = journeyStartTime ? 
+                  differenceInMinutes(new Date(), journeyStartTime) : 0;
+                const ecoScore = calculateEcoScore(currentTransportMode, duration, carbonSaved);
                 
-                setJourneyStats(prevStats => {
-                  const newDistance = prevStats.distance + distance;
-                  const carbonSaved = calculateCarbonSaved(newDistance, currentTransportMode);
-                  const duration = journeyStartTime ? 
-                    differenceInMinutes(new Date(), journeyStartTime) : 0;
-                  const ecoScore = calculateEcoScore(currentTransportMode, duration, carbonSaved);
-                  
-                  return {
-                    distance: newDistance,
-                    carbonSaved,
-                    duration,
-                    ecoScore
-                  };
-                });
-              }
-              
-              return updated;
-            });
-          }
-
-          if (showAddDialog) {
-            if (dialogType === 'waypoint' && !newWaypoint.latitude) {
-              setNewWaypoint(prev => ({
-                ...prev,
-                latitude: newLocation[0],
-                longitude: newLocation[1]
-              }));
-            }
-            if (dialogType === 'volunteer' && !newVolunteerEvent.latitude) {
-              setNewVolunteerEvent(prev => ({
-                ...prev,
-                latitude: newLocation[0],
-                longitude: newLocation[1]
-              }));
+                return {
+                  distance: newDistance,
+                  carbonSaved,
+                  duration,
+                  ecoScore
+                };
+              });
             }
           }
         },
@@ -209,14 +168,28 @@ export default function MapPage() {
         },
         {
           enableHighAccuracy: true,
-          timeout: 5000,
+          timeout: 10000,
           maximumAge: 0
         }
       );
 
       return () => navigator.geolocation.clearWatch(watchId);
     }
-  }, [isTracking, userLocation, currentTransportMode, journeyStartTime, showAddDialog, dialogType, newWaypoint.latitude, newVolunteerEvent.latitude]);
+  }, [isTracking, routeHistory, currentTransportMode, journeyStartTime]);
+
+  const { data: todayScore } = useQuery({
+    queryKey: ['todayScore', currentUser?.email],
+    queryFn: async () => {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const scores = await base44.entities.EcoScore.filter(
+        { created_by: currentUser?.email, date: today },
+        '-created_date',
+        1
+      );
+      return scores[0] || null;
+    },
+    enabled: !!currentUser,
+  });
 
   const { data: waypoints } = useQuery({
     queryKey: ['waypoints'],
@@ -234,6 +207,20 @@ export default function MapPage() {
     queryKey: ['hazards'],
     queryFn: () => base44.entities.HazardZone.list(),
     initialData: [],
+  });
+
+  const updateScoreMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.EcoScore.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todayScore'] });
+    },
+  });
+
+  const createScoreMutation = useMutation({
+    mutationFn: (data) => base44.entities.EcoScore.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['todayScore'] });
+    },
   });
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -276,34 +263,6 @@ export default function MapPage() {
     
     return Math.min(100, Math.round(baseScore + durationBonus + carbonBonus));
   };
-
-  const heatmapData = useMemo(() => {
-    if (!showHeatmap) return [];
-    
-    const points = [];
-    
-    waypoints.forEach(waypoint => {
-      if (waypoint.latitude && waypoint.longitude) {
-        const intensity = (waypoint.eco_rating || 70) / 100;
-        points.push([waypoint.latitude, waypoint.longitude, intensity]);
-      }
-    });
-    
-    greenActions.forEach(action => {
-      if (action.latitude && action.longitude && !action.completed) {
-        points.push([action.latitude, action.longitude, 0.9]);
-      }
-    });
-    
-    hazards.forEach(hazard => {
-      if (hazard.latitude && hazard.longitude) {
-        const intensity = 1 - (hazard.hazard_level / 100);
-        points.push([hazard.latitude, hazard.longitude, intensity]);
-      }
-    });
-    
-    return points;
-  }, [waypoints, greenActions, hazards, showHeatmap]);
 
   const createWaypointMutation = useMutation({
     mutationFn: (data) => base44.entities.EcoWaypoint.create(data),
@@ -410,20 +369,59 @@ export default function MapPage() {
   };
 
   const handleStartJourney = () => {
+    if (!userLocation) return;
+    
     setIsTracking(true);
     setJourneyStartTime(new Date());
-    setRouteHistory(userLocation ? [userLocation] : []);
+    setRouteHistory([userLocation]);
     setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
     setShowTransportSheet(true);
     setShowStatsOverlay(true);
   };
 
-  const handleStopJourney = () => {
+  const saveJourneyToDatabase = async () => {
+    if (journeyStats.distance === 0) return;
+
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const transportMinutes = {
+      walking_minutes: currentTransportMode === 'walking' ? journeyStats.duration : 0,
+      cycling_minutes: currentTransportMode === 'cycling' ? journeyStats.duration : 0,
+      public_transport_minutes: currentTransportMode === 'public_transport' ? journeyStats.duration : 0,
+      driving_minutes: currentTransportMode === 'driving' ? journeyStats.duration : 0,
+    };
+
+    if (todayScore) {
+      updateScoreMutation.mutate({
+        id: todayScore.id,
+        data: {
+          ...todayScore,
+          walking_minutes: (todayScore.walking_minutes || 0) + transportMinutes.walking_minutes,
+          cycling_minutes: (todayScore.cycling_minutes || 0) + transportMinutes.cycling_minutes,
+          public_transport_minutes: (todayScore.public_transport_minutes || 0) + transportMinutes.public_transport_minutes,
+          driving_minutes: (todayScore.driving_minutes || 0) + transportMinutes.driving_minutes,
+          carbon_saved_kg: (todayScore.carbon_saved_kg || 0) + journeyStats.carbonSaved,
+          score: Math.min(100, (todayScore.score || 0) + Math.round(journeyStats.ecoScore / 2)),
+        }
+      });
+    } else {
+      createScoreMutation.mutate({
+        date: today,
+        score: journeyStats.ecoScore,
+        ...transportMinutes,
+        green_actions_completed: 0,
+        carbon_saved_kg: journeyStats.carbonSaved,
+      });
+    }
+  };
+
+  const handleStopJourney = async () => {
     setIsTracking(false);
     setShowTransportSheet(false);
     
     if (journeyStats.distance > 0) {
-      alert(`Journey Complete!\n\nDistance: ${journeyStats.distance.toFixed(2)} miles\nCO₂ Saved: ${journeyStats.carbonSaved.toFixed(2)} kg\nDuration: ${journeyStats.duration} min\nEco Score: ${journeyStats.ecoScore}/100`);
+      await saveJourneyToDatabase();
+      
+      alert(`Journey Complete! ✅\n\nDistance: ${journeyStats.distance.toFixed(2)} miles\nCO₂ Saved: ${journeyStats.carbonSaved.toFixed(2)} kg\nDuration: ${journeyStats.duration} min\nEco Score: ${journeyStats.ecoScore}/100\n\nYour activity has been saved to today's dashboard!`);
     }
     
     setJourneyStats({ distance: 0, carbonSaved: 0, duration: 0, ecoScore: 0 });
@@ -517,18 +515,16 @@ export default function MapPage() {
       <div className="flex-1 relative">
         <MapContainer
           center={userLocation}
-          zoom={13}
+          zoom={14}
           style={{ height: '100%', width: '100%' }}
           className="z-0"
+          zoomControl={true}
         >
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; OpenStreetMap contributors'
+            maxZoom={19}
           />
-
-          {showHeatmap && heatmapData.length > 0 && window.L?.heatLayer && (
-            <HeatmapLayer points={heatmapData} intensity={0.6} />
-          )}
           
           <LocationMarker position={userLocation} accuracy={locationAccuracy} />
 
@@ -539,8 +535,8 @@ export default function MapPage() {
                 color: currentTransportMode === 'walking' ? '#10b981' :
                        currentTransportMode === 'cycling' ? '#8b5cf6' :
                        currentTransportMode === 'public_transport' ? '#3b82f6' : '#f59e0b',
-                weight: 4,
-                opacity: 0.7
+                weight: 5,
+                opacity: 0.8
               }}
             />
           )}
@@ -630,7 +626,7 @@ export default function MapPage() {
           <Card className="absolute top-4 left-4 right-4 bg-[#0f5132]/95 backdrop-blur border-emerald-500/30 z-[1000] p-3 shadow-xl">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-400" />
+                <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
                 <span className="text-white font-semibold text-sm">Journey Active</span>
               </div>
               <Button
@@ -707,7 +703,7 @@ export default function MapPage() {
                 onClick={handleStopJourney}
               >
                 <X className="w-5 h-5 mr-2" />
-                Stop
+                Stop & Save
               </Button>
             </>
           )}
@@ -750,21 +746,6 @@ export default function MapPage() {
             <SheetTitle className="text-white">Map Layers</SheetTitle>
           </SheetHeader>
           <div className="space-y-4 mt-6 pb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Activity className="w-5 h-5 text-emerald-400" />
-                <span className="text-white font-medium">Heatmap</span>
-              </div>
-              <Button
-                size="sm"
-                variant={showHeatmap ? "default" : "outline"}
-                className={showHeatmap ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
-                onClick={() => setShowHeatmap(!showHeatmap)}
-              >
-                {showHeatmap ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              </Button>
-            </div>
-
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <MapPin className="w-5 h-5 text-emerald-400" />
