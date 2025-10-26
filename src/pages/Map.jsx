@@ -1,4 +1,3 @@
-
 /* eslint-disable react/prop-types */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
@@ -20,9 +19,6 @@ import L from "leaflet";
 import { format, differenceInMinutes } from "date-fns";
 import "leaflet/dist/leaflet.css";
 import EmissionsComparison from "../components/map/EmissionsComparison";
-
-// The dynamic import for 'leaflet.heat' is temporarily removed to address build errors
-// The heatmap functionality will be reintroduced in a future update.
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -68,13 +64,44 @@ const LocationMarker = ({ position, accuracy }) => {
   );
 };
 
-const HeatmapLayer = ({ waypoints, greenActions }) => {
-  const map = useMap(); // Keep map for potential future use
+const HeatmapLayer = ({ waypoints, greenActions, enabled }) => {
+  const map = useMap();
 
   useEffect(() => {
-    // Heatmap temporarily disabled - will be added in future update
-    console.log('Heatmap data points:', waypoints.length + greenActions.length);
-  }, [map, waypoints, greenActions]); // Keep dependencies consistent for when it's re-enabled
+    if (!map || !enabled) return;
+
+    // Create heatmap points from waypoints and green actions
+    const points = [];
+    
+    waypoints.forEach(wp => {
+      if (wp.latitude && wp.longitude) {
+        const intensity = (wp.eco_rating || 70) / 100;
+        points.push([wp.latitude, wp.longitude, intensity]);
+      }
+    });
+
+    greenActions.forEach(action => {
+      if (action.latitude && action.longitude) {
+        points.push([action.latitude, action.longitude, 0.9]);
+      }
+    });
+
+    if (points.length === 0) return;
+
+    // Create custom heatmap using CircleMarkers as fallback
+    const circles = points.map(([lat, lng, intensity]) => {
+      return L.circle([lat, lng], {
+        radius: 200,
+        fillColor: intensity > 0.7 ? '#fbbf24' : intensity > 0.5 ? '#10b981' : '#3b82f6',
+        fillOpacity: intensity * 0.3,
+        stroke: false
+      }).addTo(map);
+    });
+
+    return () => {
+      circles.forEach(circle => map.removeLayer(circle));
+    };
+  }, [map, waypoints, greenActions, enabled]);
 
   return null;
 };
@@ -95,13 +122,13 @@ export default function MapPage() {
   const [showLayersSheet, setShowLayersSheet] = useState(false);
   const [showTransportSheet, setShowTransportSheet] = useState(false);
   const [showStatsOverlay, setShowStatsOverlay] = useState(true);
-  const [showEmissionsWidget, setShowEmissionsWidget] = useState(false);
+  const [showEmissionsWidget, setShowEmissionsWidget] = useState(true);
   
   const [showHazards, setShowHazards] = useState(true);
   const [showWaypoints, setShowWaypoints] = useState(true);
   const [showGreenActions, setShowGreenActions] = useState(true);
   const [showRouteHistory, setShowRouteHistory] = useState(true);
-  const [showHeatmap] = useState(false); // Temporarily disabled, will be enabled in a future update
+  const [showHeatmap, setShowHeatmap] = useState(true);
   
   const [addressSearch, setAddressSearch] = useState('');
   const [searchingAddress, setSearchingAddress] = useState(false);
@@ -148,7 +175,7 @@ export default function MapPage() {
   useEffect(() => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       console.warn("Geolocation is not supported or available.");
-      setUserLocation([37.5407, -77.4360]); // Default to a central Virginia location
+      setUserLocation([37.5407, -77.4360]);
       return;
     }
 
@@ -160,7 +187,6 @@ export default function MapPage() {
         setUserLocation(newLocation);
         setLocationAccuracy(accuracy);
 
-        // Get location name
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLocation[0]}&lon=${newLocation[1]}`
@@ -200,7 +226,7 @@ export default function MapPage() {
       },
       (error) => {
         console.error("Location error:", error);
-        setUserLocation([37.5407, -77.4360]); // Default to a central Virginia location on error
+        setUserLocation([37.5407, -77.4360]);
       },
       {
         enableHighAccuracy: true,
@@ -313,7 +339,7 @@ export default function MapPage() {
   });
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 3959; // Radius of Earth in miles
+    const R = 3959;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -325,13 +351,13 @@ export default function MapPage() {
 
   const calculateCarbonSaved = (distanceMiles, transportMode) => {
     const emissionFactors = {
-      walking: 0, // kg CO2e per mile
+      walking: 0,
       cycling: 0,
-      public_transport: 0.14, // Avg for US public transit (e.g., bus, rail)
-      driving: 0.404, // Avg for gasoline car (EPA, 2023)
+      public_transport: 0.14,
+      driving: 0.404,
     };
     
-    const carEmissions = emissionFactors.driving; // Baseline comparison
+    const carEmissions = emissionFactors.driving;
     const modeEmissions = emissionFactors[transportMode] || 0;
     const savedPerMile = carEmissions - modeEmissions;
     
@@ -347,8 +373,8 @@ export default function MapPage() {
     };
     
     const baseScore = modeScores[transportMode] || 50;
-    const durationBonus = Math.min(durationMinutes * 0.5, 20); // Max 20 points for duration
-    const carbonBonus = Math.min(carbonSaved * 10, 30); // Max 30 points for carbon saved (approx 3kg)
+    const durationBonus = Math.min(durationMinutes * 0.5, 20);
+    const carbonBonus = Math.min(carbonSaved * 10, 30);
     
     return Math.min(100, Math.round(baseScore + durationBonus + carbonBonus));
   };
@@ -405,7 +431,6 @@ export default function MapPage() {
   const handleAddWaypoint = (e) => {
     e.preventDefault();
     
-    // Use user's current location if no specific coords from address search
     const lat = newWaypoint.latitude || (userLocation ? userLocation[0] : null);
     const lon = newWaypoint.longitude || (userLocation ? userLocation[1] : null);
 
@@ -426,7 +451,6 @@ export default function MapPage() {
   const handleAddVolunteer = (e) => {
     e.preventDefault();
     
-    // Use user's current location if no specific coords from address search
     const lat = newVolunteerEvent.latitude || (userLocation ? userLocation[0] : null);
     const lon = newVolunteerEvent.longitude || (userLocation ? userLocation[1] : null);
 
@@ -616,7 +640,7 @@ export default function MapPage() {
           <LocationMarker position={userLocation} accuracy={locationAccuracy} />
 
           {showHeatmap && (
-            <HeatmapLayer waypoints={waypoints} greenActions={greenActions} />
+            <HeatmapLayer waypoints={waypoints} greenActions={greenActions} enabled={showHeatmap} />
           )}
 
           {showRouteHistory && routeHistory.length > 1 && (
@@ -765,25 +789,33 @@ export default function MapPage() {
             </div>
             <div className="grid grid-cols-4 gap-2">
               <div className="text-center">
-                <div className="text-emerald-200/60 text-[10px] uppercase">Distance</div>
+                <div className="text-emerald-200/60 text-[10px] uppercase tracking-wider mb-1">
+                  Distance
+                </div>
                 <div className="text-white font-bold text-sm">
                   {journeyStats.distance.toFixed(2)}mi
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-emerald-200/60 text-[10px] uppercase">CO₂ Saved</div>
+                <div className="text-emerald-200/60 text-[10px] uppercase tracking-wider mb-1">
+                  CO₂ Saved
+                </div>
                 <div className="text-white font-bold text-sm">
                   {journeyStats.carbonSaved.toFixed(2)}kg
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-emerald-200/60 text-[10px] uppercase">Time</div>
+                <div className="text-emerald-200/60 text-[10px] uppercase tracking-wider mb-1">
+                  Time
+                </div>
                 <div className="text-white font-bold text-sm">
                   {journeyStats.duration}min
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-emerald-200/60 text-[10px] uppercase">Score</div>
+                <div className="text-emerald-200/60 text-[10px] uppercase tracking-wider mb-1">
+                  Score
+                </div>
                 <div className="text-white font-bold text-sm">
                   {journeyStats.ecoScore}
                 </div>
@@ -944,15 +976,15 @@ export default function MapPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Flame className="w-5 h-5 text-orange-400" />
-                <span className="text-white font-medium">Activity Heatmap (Disabled)</span> {/* Updated label for clarity */}
+                <span className="text-white font-medium">Activity Heatmap</span>
               </div>
               <Button
                 size="sm"
-                variant="outline" // Always outline since it's disabled
-                className="border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20 opacity-50 cursor-not-allowed" // Styled as disabled
-                disabled // Explicitly disable the button
+                variant={showHeatmap ? "default" : "outline"}
+                className={showHeatmap ? "bg-emerald-500 hover:bg-emerald-600" : "border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/20"}
+                onClick={() => setShowHeatmap(!showHeatmap)}
               >
-                <EyeOff className="w-4 h-4" /> {/* Always show EyeOff when disabled */}
+                {showHeatmap ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
               </Button>
             </div>
 
