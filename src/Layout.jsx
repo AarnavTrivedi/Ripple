@@ -32,26 +32,22 @@ export default function Layout({ children, currentPageName }) {
         }
       `}</style>
 
-      {/* Nature Background */}
       <div className="fixed inset-0 bg-gradient-to-br from-[#0a3d29] via-[#0f5132] to-[#0a3d29] plant-bg" />
       <div className="fixed inset-0 leaf-pattern opacity-40" />
       <div className="fixed inset-0 bg-gradient-to-t from-[#0a3d29]/60 to-transparent" />
 
-      {/* Vertical Sidebar - Right Edge */}
       <div className="fixed right-0 top-0 bottom-0 w-12 bg-gradient-to-b from-[#0f5132]/60 to-[#0a3d29]/60 backdrop-blur-sm border-l border-emerald-500/10 z-40 flex items-center justify-center">
         <div className="transform -rotate-90 whitespace-nowrap">
           <p className="text-white/60 text-[10px] uppercase tracking-[0.4em] font-light">
-            Events
+            RIPPLE
           </p>
         </div>
       </div>
 
-      {/* Main Content */}
       <main className="relative pb-24 pr-12">
         {children}
       </main>
 
-      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-12 bg-[#0f5132]/90 backdrop-blur-xl border-t border-emerald-500/20 z-50">
         <div className="max-w-lg mx-auto px-6 py-3">
           <div className="flex items-center justify-between">
