@@ -1,4 +1,3 @@
-import React from "react";
 import { Card } from "@/components/ui/card";
 import { TrendingDown, TrendingUp, Globe, MapPin } from "lucide-react";
 
@@ -25,21 +24,22 @@ const EmissionsComparison = ({
       
       const sorted = data.sort((a, b) => b.year - a.year);
       const latest = sorted[0];
-      const previous = sorted[1];
-      
-      const trend = previous 
-        ? ((latest.total_emissions - previous.total_emissions) / previous.total_emissions) * 100
-        : 0;
       
       return {
-        value: latest.total_emissions,
-        trend: trend,
+        value: latest.total_emissions || latest.co2_tons || 0,
+        trend: latest.change_percentage || 0,
         year: latest.year
       };
     };
 
+    // Try to find data matching the current location, otherwise use first county
+    const locationCountyData = countyData.filter(d => 
+      d.location.toLowerCase().includes(currentLocation.toLowerCase().split(',')[0])
+    );
+    const relevantCountyData = locationCountyData.length > 0 ? locationCountyData : countyData;
+
     return {
-      county: getLatestAndTrend(countyData),
+      county: getLatestAndTrend(relevantCountyData),
       national: getLatestAndTrend(nationalData),
       global: getLatestAndTrend(globalData)
     };
@@ -56,7 +56,10 @@ const EmissionsComparison = ({
   const globalDiff = calculateDifference(data.county.value, data.global.value);
 
   const formatEmissions = (value) => {
-    if (value >= 1000000) {
+    if (value === 0) return "No data";
+    if (value >= 1000000000) {
+      return `${(value / 1000000000).toFixed(1)}B`;
+    } else if (value >= 1000000) {
       return `${(value / 1000000).toFixed(1)}M`;
     } else if (value >= 1000) {
       return `${(value / 1000).toFixed(1)}K`;
