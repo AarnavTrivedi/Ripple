@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -149,7 +150,7 @@ export default function Dashboard() {
       </div>
 
       <div className="relative z-10 px-6 pt-8 pb-32">
-        {/* Eco Score Card - Glassmorphism */}
+        {/* Eco Score Card - Exact Match */}
         <Card className="bg-white/10 backdrop-blur-2xl border-white/20 shadow-2xl rounded-[2rem] p-8 mb-6 relative overflow-hidden">
           {/* Ripple Effects */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -222,7 +223,7 @@ export default function Dashboard() {
                   className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-5 hover:bg-white/15 transition-all duration-300"
                 >
                   <h4 className="text-white font-semibold mb-2">{action.title}</h4>
-                  <p className="text-gray-300 text-sm mb-3">{action.description}</p>
+                  <p className="text-gray-300 text-sm mb-3 line-clamp-2">{action.description}</p>
                   <div className="flex items-center gap-4 text-xs text-gray-400">
                     <span>{format(new Date(action.date), 'MMM d, h:mm a')}</span>
                     {action.points_reward && (
@@ -253,7 +254,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Newsletter Section */}
+        {/* Newsletter Section - Fixed for Mobile */}
         {newsletters.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
@@ -265,25 +266,25 @@ export default function Dashboard() {
               {newsletters.slice(0, 3).map((newsletter) => (
                 <Card 
                   key={newsletter.id} 
-                  className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-5 hover:bg-white/15 transition-all duration-300 cursor-pointer"
+                  className="bg-white/10 backdrop-blur-xl border-white/20 rounded-2xl p-4 hover:bg-white/15 transition-all duration-300 cursor-pointer overflow-hidden"
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-3">
                     {newsletter.image_url && (
                       <img 
                         src={newsletter.image_url} 
                         alt={newsletter.title}
-                        className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
+                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
                       />
                     )}
-                    <div className="flex-1">
-                      <h4 className="text-white font-semibold mb-1">{newsletter.title}</h4>
-                      <p className="text-gray-300 text-sm mb-2 line-clamp-2">{newsletter.content}</p>
-                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-white font-semibold mb-1 text-sm line-clamp-2">{newsletter.title}</h4>
+                      <p className="text-gray-300 text-xs mb-2 line-clamp-2">{newsletter.content}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400">
                         <span className="capitalize">{newsletter.category.replace(/_/g, ' ')}</span>
                         <span>•</span>
-                        <span>{newsletter.location}</span>
+                        <span className="truncate">{newsletter.location}</span>
                         <span>•</span>
-                        <span>{format(new Date(newsletter.publish_date), 'MMM d, yyyy')}</span>
+                        <span className="whitespace-nowrap">{format(new Date(newsletter.publish_date), 'MMM d, yyyy')}</span>
                       </div>
                     </div>
                   </div>
