@@ -4,7 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Circle, Plus, RefreshCw, Newspaper } from "lucide-react";
+import { MapPin, Circle, Plus, RefreshCw, Newspaper, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { createPageUrl } from "@/utils";
 import ActivityLogger from "../components/dashboard/ActivityLogger";
@@ -91,6 +91,62 @@ export default function Dashboard() {
     },
   });
 
+  const generateNewsMutation = useMutation({
+    mutationFn: async () => {
+      const newsData = await base44.integrations.Core.InvokeLLM({
+        prompt: `Search the internet for 3 recent environmental news articles about ${locationName}. Find real news from the last week about:
+- Climate action
+- Environmental initiatives
+- Pollution or air quality
+- Wildlife conservation
+- Green energy
+
+Return real headlines and summaries.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            articles: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  content: { type: "string" },
+                  location: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (newsData && newsData.articles && newsData.articles.length > 0) {
+        const oldNews = await base44.entities.Newsletter.list();
+        for (const news of oldNews) {
+          await base44.entities.Newsletter.delete(news.id);
+        }
+
+        const today = format(new Date(), 'yyyy-MM-dd');
+        for (const article of newsData.articles) {
+          await base44.entities.Newsletter.create({
+            title: article.title,
+            content: article.content,
+            location: article.location || locationName,
+            category: "climate_news",
+            publish_date: today,
+            image_url: "https://images.unsplash.com/photo-1611273426858-450d8e3c9fce?w=800"
+          });
+        }
+      }
+
+      return newsData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['newsletters'] });
+    },
+  });
+
   const handleStartTracking = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     createScoreMutation.mutate({
@@ -131,6 +187,10 @@ export default function Dashboard() {
         date: today
       });
     }
+  };
+
+  const handleRefreshNews = () => {
+    generateNewsMutation.mutate();
   };
 
   const score = todayScore?.score || 0;
@@ -334,9 +394,30 @@ export default function Dashboard() {
         {/* Newsletter Section */}
         {newsletters.length > 0 && (
           <div className="mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Newspaper className="w-5 h-5 text-[#10D9A0]" />
-              <h2 className="text-xl font-bold text-white">Environmental News</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Newspaper className="w-5 h-5 text-[#10D9A0]" />
+                <h2 className="text-xl font-bold text-white">Environmental News</h2>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRefreshNews}
+                disabled={generateNewsMutation.isPending}
+                className="border-emerald-500/30 bg-white/10 backdrop-blur-xl text-white hover:bg-white/20"
+              >
+                {generateNewsMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </>
+                )}
+              </Button>
             </div>
 
             <div className="space-y-3">
