@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -157,9 +158,9 @@ export default function Dashboard() {
               {score}
             </div>
             
-            {/* ECO SCORE Label */}
+            {/* Eco Score Label */}
             <div className="text-xs text-gray-300 uppercase tracking-[0.25em] mb-6">
-              ECO SCORE
+              Eco Score
             </div>
             
             {/* Start Tracking Button or Activity Logger */}
