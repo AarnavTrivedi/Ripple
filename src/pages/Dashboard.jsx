@@ -181,6 +181,59 @@ export default function Dashboard() {
           </div>
         </Card>
 
+        {/* Today's Activity Stats */}
+        {todayScore && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Today's Activity</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {/* Walking Stat */}
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-5 text-center shadow-lg">
+                <div className="text-xs font-medium text-emerald-200/60 uppercase tracking-wider mb-2">
+                  Walking
+                </div>
+                <div className="text-[42px] font-bold text-white leading-none drop-shadow-lg">
+                  {todayScore.walking_minutes || 0}
+                </div>
+                <div className="text-sm text-emerald-200/60 font-medium mt-1">min</div>
+              </div>
+
+              {/* Cycling Stat */}
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-5 text-center shadow-lg">
+                <div className="text-xs font-medium text-emerald-200/60 uppercase tracking-wider mb-2">
+                  Cycling
+                </div>
+                <div className="text-[42px] font-bold text-white leading-none drop-shadow-lg">
+                  {todayScore.cycling_minutes || 0}
+                </div>
+                <div className="text-sm text-emerald-200/60 font-medium mt-1">min</div>
+              </div>
+
+              {/* CO₂ Saved Stat */}
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-5 text-center shadow-lg">
+                <div className="text-xs font-medium text-emerald-200/60 uppercase tracking-wider mb-2">
+                  CO₂ Saved
+                </div>
+                <div className="text-[42px] font-bold text-emerald-300 leading-none drop-shadow-lg">
+                  {todayScore.carbon_saved_kg?.toFixed(1) || 0}
+                </div>
+                <div className="text-sm text-emerald-200/60 font-medium mt-1">kg</div>
+              </div>
+
+              {/* Actions Stat */}
+              <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-5 text-center shadow-lg">
+                <div className="text-xs font-medium text-emerald-200/60 uppercase tracking-wider mb-2">
+                  Actions
+                </div>
+                <div className="text-[42px] font-bold text-white leading-none drop-shadow-lg">
+                  {todayScore.green_actions_completed || 0}
+                </div>
+                <div className="text-sm text-emerald-200/60 font-medium mt-1">completed</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Events Near You Section */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
