@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,21 +8,42 @@ import { format } from "date-fns";
 import { createPageUrl } from "@/utils";
 import ActivityLogger from "../components/dashboard/ActivityLogger";
 
+// Mock user data
+const mockUser = {
+  email: "demo@ecotrackr.app",
+  name: "Demo User"
+};
+
+// Mock data storage key
+const STORAGE_KEY = "ecotrackr_data";
+
+// Get stored data from localStorage
+const getStoredData = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : { scores: [], actions: [], newsletters: [] };
+  } catch (error) {
+    return { scores: [], actions: [], newsletters: [] };
+  }
+};
+
+// Save data to localStorage
+const saveStoredData = (data) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error("Error saving data:", error);
+  }
+};
+
 export default function Dashboard() {
   const queryClient = useQueryClient();
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(mockUser);
   const [locationName, setLocationName] = useState("Your County, Virginia");
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const user = await base44.auth.me();
-        setCurrentUser(user);
-      } catch (error) {
-        console.error("Error fetching user:", error);
-      }
-    };
-    fetchUser();
+    // Set mock user immediately
+    setCurrentUser(mockUser);
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -48,12 +68,9 @@ export default function Dashboard() {
     queryKey: ['todayScore', currentUser?.email],
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
-      const scores = await base44.entities.EcoScore.filter(
-        { created_by: currentUser?.email, date: today },
-        '-created_date',
-        1
-      );
-      return scores[0] || null;
+      const storedData = getStoredData();
+      const todayScoreData = storedData.scores.find(score => score.date === today);
+      return todayScoreData || null;
     },
     enabled: !!currentUser,
   });
@@ -62,30 +79,80 @@ export default function Dashboard() {
     queryKey: ['upcomingActions'],
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
-      return await base44.entities.GreenAction.filter(
-        { completed: false, date: { $gte: today } },
-        'date',
-        5
-      );
+      const storedData = getStoredData();
+      const upcomingActionsData = storedData.actions.filter(
+        action => !action.completed && action.date >= today
+      ).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 5);
+      return upcomingActionsData;
     },
     initialData: [],
   });
 
+  // Mock newsletters - always available
+  const mockNewsletters = [
+    {
+      id: 1,
+      title: "Local Park Cleanup Initiative",
+      content: "Join our community in cleaning up Green Valley Park this weekend. All volunteers welcome!",
+      category: "local_events",
+      location: "Green Valley Park",
+      publish_date: new Date().toISOString(),
+      image_url: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&q=80"
+    },
+    {
+      id: 2,
+      title: "Sustainable Transportation Week",
+      content: "Learn about eco-friendly commuting options and win prizes for logging green miles.",
+      category: "sustainability",
+      location: "City Wide",
+      publish_date: new Date().toISOString(),
+      image_url: "https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=400&q=80"
+    }
+  ];
+
   const { data: newsletters } = useQuery({
     queryKey: ['newsletters'],
-    queryFn: () => base44.entities.Newsletter.list('-publish_date', 5),
-    initialData: [],
+    queryFn: async () => {
+      const storedData = getStoredData();
+      // Return mock newsletters if none exist
+      if (storedData.newsletters.length === 0) {
+        return mockNewsletters;
+      }
+      return storedData.newsletters.sort((a, b) => 
+        new Date(b.publish_date) - new Date(a.publish_date)
+      ).slice(0, 5);
+    },
+    initialData: mockNewsletters, // Always start with mock data
   });
 
   const createScoreMutation = useMutation({
-    mutationFn: (data) => base44.entities.EcoScore.create(data),
+    mutationFn: async (data) => {
+      const storedData = getStoredData();
+      const newScore = {
+        ...data,
+        id: Date.now().toString(),
+        created_date: new Date().toISOString()
+      };
+      storedData.scores.push(newScore);
+      saveStoredData(storedData);
+      return newScore;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todayScore'] });
     },
   });
 
   const updateScoreMutation = useMutation({
-    mutationFn: ({ id, data }) => base44.entities.EcoScore.update(id, data),
+    mutationFn: async ({ id, data }) => {
+      const storedData = getStoredData();
+      const scoreIndex = storedData.scores.findIndex(score => score.id === id);
+      if (scoreIndex !== -1) {
+        storedData.scores[scoreIndex] = { ...storedData.scores[scoreIndex], ...data };
+        saveStoredData(storedData);
+        return storedData.scores[scoreIndex];
+      }
+      return null;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todayScore'] });
     },
@@ -331,45 +398,43 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Newsletter Section */}
-        {newsletters.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Newspaper className="w-5 h-5 text-[#10D9A0]" />
-              <h2 className="text-xl font-bold text-white">Environmental News</h2>
-            </div>
+        {/* Newsletter Section - ALWAYS VISIBLE */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Newspaper className="w-5 h-5 text-[#10D9A0]" />
+            <h2 className="text-xl font-bold text-white">Environmental News</h2>
+          </div>
 
-            <div className="space-y-3">
-              {newsletters.slice(0, 3).map((newsletter) => (
-                <Card 
-                  key={newsletter.id} 
-                  className="bg-white/8 backdrop-blur-md border-emerald-400/15 rounded-2xl p-4 hover:bg-white/12 transition-all duration-300 cursor-pointer"
-                >
-                  <div className="flex items-start gap-3">
-                    {newsletter.image_url && (
-                      <img 
-                        src={newsletter.image_url} 
-                        alt={newsletter.title}
-                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-white font-semibold mb-1 text-sm line-clamp-2">{newsletter.title}</h4>
-                      <p className="text-gray-300 text-xs mb-2 line-clamp-2">{newsletter.content}</p>
-                      <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400">
-                        <span className="capitalize">{newsletter.category.replace(/_/g, ' ')}</span>
-                        <span>•</span>
-                        <span className="truncate">{newsletter.location}</span>
-                        <span>•</span>
-                        <span className="whitespace-nowrap">{format(new Date(newsletter.publish_date), 'MMM d, yyyy')}</span>
-                      </div>
+          <div className="space-y-3">
+            {newsletters.slice(0, 3).map((newsletter) => (
+              <Card 
+                key={newsletter.id} 
+                className="bg-white/8 backdrop-blur-md border-emerald-400/15 rounded-2xl p-4 hover:bg-white/12 transition-all duration-300 cursor-pointer"
+              >
+                <div className="flex items-start gap-3">
+                  {newsletter.image_url && (
+                    <img 
+                      src={newsletter.image_url} 
+                      alt={newsletter.title}
+                      className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-white font-semibold mb-1 text-sm line-clamp-2">{newsletter.title}</h4>
+                    <p className="text-gray-300 text-xs mb-2 line-clamp-2">{newsletter.content}</p>
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-400">
+                      <span className="capitalize">{newsletter.category.replace(/_/g, ' ')}</span>
+                      <span>•</span>
+                      <span className="truncate">{newsletter.location}</span>
+                      <span>•</span>
+                      <span className="whitespace-nowrap">{format(new Date(newsletter.publish_date), 'MMM d, yyyy')}</span>
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
+                </div>
+              </Card>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

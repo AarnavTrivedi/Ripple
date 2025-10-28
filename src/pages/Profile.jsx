@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,30 +7,84 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { User, Bell, Award, LogOut, Mail } from "lucide-react";
 
+// Mock user data
+const mockUser = {
+  email: "demo@ecotrackr.app",
+  full_name: "Eco Warrior",
+  eco_points: 1250,
+  newsletter_subscribed: true
+};
+
+// Storage keys
+const USER_STORAGE_KEY = "ecotrackr_user";
+const NEWSLETTER_STORAGE_KEY = "ecotrackr_newsletters";
+
+// Get stored user data
+const getStoredUser = () => {
+  try {
+    const data = localStorage.getItem(USER_STORAGE_KEY);
+    return data ? JSON.parse(data) : mockUser;
+  } catch (error) {
+    return mockUser;
+  }
+};
+
+// Save user data
+const saveStoredUser = (userData) => {
+  try {
+    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
+  } catch (error) {
+    console.error("Error saving user data:", error);
+  }
+};
+
+// Mock newsletters
+const mockNewsletters = [
+  {
+    id: 1,
+    title: "Local Park Cleanup Initiative",
+    location: "Green Valley Park"
+  },
+  {
+    id: 2,
+    title: "Sustainable Transportation Week",
+    location: "City Wide"
+  },
+  {
+    id: 3,
+    title: "Virginia Environmental Summit",
+    location: "Richmond Convention Center"
+  }
+];
+
 export default function Profile() {
   const queryClient = useQueryClient();
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(getStoredUser());
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const user = await base44.auth.me();
-        setCurrentUser(user);
-      } catch (error) {
-        console.error("Error fetching user:", error);
-      }
-    };
-    fetchUser();
+    // Load user from localStorage
+    setCurrentUser(getStoredUser());
   }, []);
 
   const { data: newsletters } = useQuery({
     queryKey: ['newsletters'],
-    queryFn: () => base44.entities.Newsletter.list('-publish_date', 5),
-    initialData: [],
+    queryFn: async () => {
+      try {
+        const stored = localStorage.getItem(NEWSLETTER_STORAGE_KEY);
+        return stored ? JSON.parse(stored) : mockNewsletters;
+      } catch (error) {
+        return mockNewsletters;
+      }
+    },
+    initialData: mockNewsletters,
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: (data) => base44.auth.updateMe(data),
+    mutationFn: async (data) => {
+      const updatedUser = { ...currentUser, ...data };
+      saveStoredUser(updatedUser);
+      return updatedUser;
+    },
     onSuccess: (updatedUser) => {
       setCurrentUser(updatedUser);
       queryClient.invalidateQueries({ queryKey: ['user'] });
@@ -43,13 +96,28 @@ export default function Profile() {
   };
 
   const handleLogout = () => {
-    base44.auth.logout();
+    // Clear user data and redirect (optional)
+    localStorage.removeItem(USER_STORAGE_KEY);
+    window.location.reload();
   };
 
   return (
-    <div className="min-h-screen p-6 pt-8 pb-32">
-      {/* Header */}
-      <div className="mb-8">
+    <div className="min-h-screen relative overflow-hidden bg-[#1a2f26]">
+      {/* Leaf Background */}
+      <div className="fixed inset-0 z-0 opacity-20">
+        <div 
+          className="absolute inset-0"
+          style={{
+            backgroundImage: 'url(https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=1200&q=80)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 p-6 pt-8 pb-32">
+        {/* Header */}
+        <div className="mb-8">
         <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mb-4">
           <span className="text-3xl font-bold text-white">
             {currentUser?.full_name?.[0] || 'E'}
@@ -92,7 +160,7 @@ export default function Profile() {
           />
         </div>
 
-        {currentUser?.newsletter_subscribed && newsletters.length > 0 && (
+        {currentUser?.newsletter_subscribed && (
           <div className="mt-4 space-y-2">
             {newsletters.slice(0, 3).map((newsletter) => (
               <div key={newsletter.id} className="p-3 bg-[#1e4d3a]/60 rounded-lg">
@@ -141,6 +209,7 @@ export default function Profile() {
         <LogOut className="w-4 h-4 mr-2" />
         Logout
       </Button>
+      </div>
     </div>
   );
 }

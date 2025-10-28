@@ -1,10 +1,45 @@
 
 import React, { useState, useEffect } from "react";
-import { base44 } from "@/api/base44Client";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Camera, Leaf, AlertTriangle, Navigation } from "lucide-react";
+
+// Storage keys
+const GREEN_ACTIONS_KEY = "ecotrackr_green_actions";
+const HAZARDS_KEY = "ecotrackr_hazards";
+
+// Mock green actions data
+const mockGreenActions = [
+  {
+    id: 1,
+    title: "Park Cleanup",
+    description: "Help clean up local park",
+    latitude: 37.5407,
+    longitude: -77.4360,
+    points_reward: 50
+  },
+  {
+    id: 2,
+    title: "Tree Planting",
+    description: "Join community tree planting event",
+    latitude: 37.5507,
+    longitude: -77.4460,
+    points_reward: 75
+  }
+];
+
+// Mock hazard zones
+const mockHazards = [
+  {
+    id: 1,
+    name: "Air Quality Warning",
+    description: "Elevated particulate matter levels",
+    latitude: 37.5307,
+    longitude: -77.4260,
+    hazard_level: 65
+  }
+];
 
 export default function Scanner() {
   const [userLocation, setUserLocation] = useState(null);
@@ -32,14 +67,28 @@ export default function Scanner() {
 
   const { data: greenActions } = useQuery({
     queryKey: ['greenActions'],
-    queryFn: () => base44.entities.GreenAction.list(),
-    initialData: [],
+    queryFn: async () => {
+      try {
+        const stored = localStorage.getItem(GREEN_ACTIONS_KEY);
+        return stored ? JSON.parse(stored) : mockGreenActions;
+      } catch (error) {
+        return mockGreenActions;
+      }
+    },
+    initialData: mockGreenActions,
   });
 
   const { data: hazards } = useQuery({
     queryKey: ['hazards'],
-    queryFn: () => base44.entities.HazardZone.list(),
-    initialData: [],
+    queryFn: async () => {
+      try {
+        const stored = localStorage.getItem(HAZARDS_KEY);
+        return stored ? JSON.parse(stored) : mockHazards;
+      } catch (error) {
+        return mockHazards;
+      }
+    },
+    initialData: mockHazards,
   });
 
   useEffect(() => {
@@ -93,8 +142,20 @@ export default function Scanner() {
 
   if (!userLocation) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen relative overflow-hidden bg-[#1a2f26] flex items-center justify-center">
+        {/* Leaf Background */}
+        <div className="fixed inset-0 z-0 opacity-20">
+          <div 
+            className="absolute inset-0"
+            style={{
+              backgroundImage: 'url(https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=1200&q=80)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
+        </div>
+        
+        <div className="relative z-10 text-center">
           <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-white">Getting your location...</p>
         </div>
@@ -103,9 +164,22 @@ export default function Scanner() {
   }
 
   return (
-    <div className="min-h-screen p-6 pt-8 pb-32">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white mb-4">AR Scanner</h1>
+    <div className="min-h-screen relative overflow-hidden bg-[#1a2f26]">
+      {/* Leaf Background */}
+      <div className="fixed inset-0 z-0 opacity-20">
+        <div 
+          className="absolute inset-0"
+          style={{
+            backgroundImage: 'url(https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=1200&q=80)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 p-6 pt-8 pb-32">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-white mb-4">AR Scanner</h1>
         
         {/* Mode Toggle */}
         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -133,7 +207,7 @@ export default function Scanner() {
       </div>
 
       {/* Camera View Simulation */}
-      <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 mb-6 relative overflow-hidden">
+      <Card className="bg-white/8 backdrop-blur-md border-emerald-400/15 rounded-2xl p-6 mb-6 relative overflow-hidden shadow-lg">
         <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent" />
         <div className="relative h-64 flex items-center justify-center">
           <div className="w-24 h-24 border-2 border-emerald-400 rounded-full flex items-center justify-center">
@@ -153,11 +227,7 @@ export default function Scanner() {
         
         {nearbyItems.length > 0 ? (
           nearbyItems.map((item, index) => (
-            <Card key={index} className={`${
-              scanMode === 'green' 
-                ? 'bg-white/10 border-white/20' 
-                : 'bg-white/10 border-white/20'
-            } backdrop-blur-xl p-4`}>
+            <Card key={index} className="bg-white/8 backdrop-blur-md border-emerald-400/15 rounded-2xl p-5 hover:bg-white/12 transition-all duration-300">
               <div className="flex items-start gap-3">
                 {scanMode === 'green' ? (
                   <Leaf className="w-6 h-6 text-emerald-400 flex-shrink-0" />
@@ -194,12 +264,19 @@ export default function Scanner() {
             </Card>
           ))
         ) : (
-          <Card className="bg-white/10 backdrop-blur-xl border-white/20 p-6 text-center">
-            <p className="text-emerald-200/60 text-sm">
+          <Card className="bg-white/5 backdrop-blur-md border-emerald-400/15 rounded-[2rem] p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
+              <Camera className="w-10 h-10 text-gray-400" />
+            </div>
+            <p className="text-gray-300 text-base mb-2">
               No {scanMode === 'green' ? 'green actions' : 'hazards'} detected within 5km
+            </p>
+            <p className="text-emerald-200/60 text-sm">
+              Try changing modes or moving to a different area
             </p>
           </Card>
         )}
+      </div>
       </div>
     </div>
   );

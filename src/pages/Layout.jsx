@@ -22,7 +22,7 @@ export default function Layout({ children }) {
 
       {/* Bottom Navigation - Glassmorphism */}
       <nav className="fixed bottom-6 left-6 right-6 z-50">
-        <div className="bg-white/90 backdrop-blur-xl border border-white/20 rounded-[2rem] shadow-2xl px-4 py-3">
+        <div className="bg-white/80 backdrop-blur-xl border border-white/10 rounded-[2rem] shadow-lg px-4 py-3">
           <div className="flex items-center justify-between max-w-lg mx-auto">
             {navItems.map((item) => {
               const isActive = location.pathname === item.url;
@@ -35,7 +35,7 @@ export default function Layout({ children }) {
                 >
                   <div className={`p-2.5 rounded-xl transition-all ${
                     isActive
-                      ? 'bg-[#10D9A0] text-white shadow-lg shadow-emerald-500/50' 
+                      ? 'bg-[#10D9A0] text-white shadow-md shadow-emerald-500/30' 
                       : 'text-gray-400 hover:text-gray-600'
                   }`}>
                     <Icon className="w-5 h-5" />
