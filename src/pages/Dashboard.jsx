@@ -160,7 +160,7 @@ export default function Dashboard() {
             
             {/* Eco Score Label */}
             <div className="text-xs text-gray-300 uppercase tracking-[0.25em] mb-6">
-              Eco Score
+              ECO SCORE
             </div>
             
             {/* Start Tracking Button or Activity Logger */}
