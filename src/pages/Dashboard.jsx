@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -149,17 +150,49 @@ export default function Dashboard() {
       </div>
 
       <div className="relative z-10 px-6 pt-8 pb-32">
-        {/* Eco Score Card - With Opacity to See Background */}
-        <Card className="bg-white/10 backdrop-blur-md border-emerald-400/20 shadow-2xl rounded-[2rem] p-6 mb-6 relative overflow-hidden">
+        {/* Eco Score Card - With More Opacity to See Background */}
+        <Card className="bg-white/5 backdrop-blur-md border-emerald-400/15 shadow-2xl rounded-[2rem] p-6 mb-6 relative overflow-hidden">
           <div className="flex flex-col items-center">
-            {/* Smaller Score Number - Centered */}
-            <div className="text-[80px] font-bold text-white leading-none mb-2">
-              {score}
-            </div>
-            
-            {/* Eco Score Label */}
-            <div className="text-xs text-gray-300 uppercase tracking-[0.25em] mb-6">
-              ECO SCORE
+            {/* Circular Progress Ring Around Score */}
+            <div className="relative w-56 h-56 mb-4">
+              {/* SVG Circle */}
+              <svg className="absolute inset-0 w-full h-full -rotate-90">
+                {/* Background circle */}
+                <circle
+                  cx="112"
+                  cy="112"
+                  r="100"
+                  fill="none"
+                  stroke="rgba(16, 185, 129, 0.15)"
+                  strokeWidth="8"
+                />
+                {/* Progress circle */}
+                <circle
+                  cx="112"
+                  cy="112"
+                  r="100"
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="8"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 100}`}
+                  strokeDashoffset={`${2 * Math.PI * 100 * (1 - Math.min(score, 100) / 100)}`}
+                  className="transition-all duration-1000 ease-out"
+                />
+              </svg>
+              
+              {/* Center Content */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                {/* Score Number */}
+                <div className="text-[80px] font-bold text-white leading-none mb-2">
+                  {score}
+                </div>
+                
+                {/* Eco Score Label */}
+                <div className="text-xs text-gray-300 uppercase tracking-[0.25em]">
+                  ECO SCORE
+                </div>
+              </div>
             </div>
             
             {/* Start Tracking Button or Activity Logger */}
@@ -187,7 +220,7 @@ export default function Dashboard() {
             
             <div className="grid grid-cols-2 gap-4">
               {/* Walking Stat */}
-              <div className="bg-white/15 backdrop-blur-md rounded-2xl border border-emerald-400/20 p-5 text-center shadow-lg">
+              <div className="bg-white/8 backdrop-blur-md rounded-2xl border border-emerald-400/15 p-5 text-center shadow-lg">
                 <div className="text-xs font-medium text-emerald-200/70 uppercase tracking-wider mb-2">
                   Walking
                 </div>
@@ -198,7 +231,7 @@ export default function Dashboard() {
               </div>
 
               {/* Cycling Stat */}
-              <div className="bg-white/15 backdrop-blur-md rounded-2xl border border-emerald-400/20 p-5 text-center shadow-lg">
+              <div className="bg-white/8 backdrop-blur-md rounded-2xl border border-emerald-400/15 p-5 text-center shadow-lg">
                 <div className="text-xs font-medium text-emerald-200/70 uppercase tracking-wider mb-2">
                   Cycling
                 </div>
@@ -209,7 +242,7 @@ export default function Dashboard() {
               </div>
 
               {/* CO₂ Saved Stat */}
-              <div className="bg-gradient-to-br from-emerald-400/20 to-white/15 backdrop-blur-md rounded-2xl border border-emerald-400/40 p-5 text-center shadow-lg">
+              <div className="bg-white/8 backdrop-blur-md rounded-2xl border border-emerald-400/15 p-5 text-center shadow-lg">
                 <div className="text-xs font-medium text-emerald-200 uppercase tracking-wider mb-2">
                   CO₂ Saved
                 </div>
@@ -220,7 +253,7 @@ export default function Dashboard() {
               </div>
 
               {/* Actions Stat */}
-              <div className="bg-white/15 backdrop-blur-md rounded-2xl border border-emerald-400/20 p-5 text-center shadow-lg">
+              <div className="bg-white/8 backdrop-blur-md rounded-2xl border border-emerald-400/15 p-5 text-center shadow-lg">
                 <div className="text-xs font-medium text-emerald-200/70 uppercase tracking-wider mb-2">
                   Actions
                 </div>
@@ -252,7 +285,7 @@ export default function Dashboard() {
             <h3 className="text-lg font-semibold text-white">Volunteer Opportunities</h3>
             <Button
               size="sm"
-              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-emerald-400/30 text-white rounded-full px-4 py-2"
+              className="bg-white/8 hover:bg-white/15 backdrop-blur-sm border border-emerald-400/20 text-white rounded-full px-4 py-2"
               onClick={() => window.location.href = createPageUrl('Map')}
             >
               <Plus className="w-4 h-4 mr-1" />
@@ -265,7 +298,7 @@ export default function Dashboard() {
               {upcomingActions.map((action) => (
                 <Card 
                   key={action.id} 
-                  className="bg-white/15 backdrop-blur-md border-emerald-400/20 rounded-2xl p-5 hover:bg-white/20 transition-all duration-300"
+                  className="bg-white/8 backdrop-blur-md border-emerald-400/15 rounded-2xl p-5 hover:bg-white/12 transition-all duration-300"
                 >
                   <h4 className="text-white font-semibold mb-2">{action.title}</h4>
                   <p className="text-gray-300 text-sm mb-3 line-clamp-2">{action.description}</p>
@@ -279,7 +312,7 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <Card className="bg-white/10 backdrop-blur-md border-emerald-400/20 rounded-[2rem] p-12 text-center">
+            <Card className="bg-white/5 backdrop-blur-md border-emerald-400/15 rounded-[2rem] p-12 text-center">
               <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center">
                 <RefreshCw className="w-10 h-10 text-gray-400" />
               </div>
@@ -310,7 +343,7 @@ export default function Dashboard() {
               {newsletters.slice(0, 3).map((newsletter) => (
                 <Card 
                   key={newsletter.id} 
-                  className="bg-white/15 backdrop-blur-md border-emerald-400/20 rounded-2xl p-4 hover:bg-white/20 transition-all duration-300 cursor-pointer"
+                  className="bg-white/8 backdrop-blur-md border-emerald-400/15 rounded-2xl p-4 hover:bg-white/12 transition-all duration-300 cursor-pointer"
                 >
                   <div className="flex items-start gap-3">
                     {newsletter.image_url && (
