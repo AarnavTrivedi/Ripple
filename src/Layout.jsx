@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Home, Map, TrendingUp, Camera, User } from "lucide-react";
+import { Home, Map, TrendingUp, Camera, User, MessageCircle } from "lucide-react";
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -10,6 +10,7 @@ export default function Layout({ children }) {
     { name: "Map", url: createPageUrl("Map"), icon: Map },
     { name: "Analytics", url: createPageUrl("Analytics"), icon: TrendingUp },
     { name: "Scanner", url: createPageUrl("Scanner"), icon: Camera },
+    { name: "Chat", url: createPageUrl("Chatbot"), icon: MessageCircle },
     { name: "Profile", url: createPageUrl("Profile"), icon: User },
   ];
 
@@ -21,7 +22,7 @@ export default function Layout({ children }) {
 
       {/* Bottom Navigation - Glassmorphism */}
       <nav className="fixed bottom-6 left-6 right-6 z-50">
-        <div className="bg-white/90 backdrop-blur-xl border border-white/20 rounded-[2rem] shadow-2xl px-4 py-3">
+        <div className="bg-white/90 backdrop-blur-xl border border-white/20 rounded-[2rem] shadow-2xl px-2 py-3">
           <div className="flex items-center justify-between max-w-lg mx-auto">
             {navItems.map((item) => {
               const isActive = location.pathname === item.url;
@@ -30,7 +31,7 @@ export default function Layout({ children }) {
                 <Link
                   key={item.name}
                   to={item.url}
-                  className="flex flex-col items-center gap-1 transition-all min-w-[60px]"
+                  className="flex flex-col items-center gap-1 transition-all min-w-[55px]"
                 >
                   <div className={`p-2.5 rounded-xl transition-all ${
                     isActive
