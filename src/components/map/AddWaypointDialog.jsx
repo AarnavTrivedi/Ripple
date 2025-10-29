@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { base44 } from "@/api/base44Client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -27,7 +26,22 @@ export default function AddWaypointDialog({ open, onClose }) {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data) => base44.entities.EcoWaypoint.create(data),
+    mutationFn: async (data) => {
+      try {
+        const waypoints = JSON.parse(localStorage.getItem('ecotrackr_waypoints') || '[]');
+        const newWaypoint = {
+          ...data,
+          id: Date.now().toString(),
+          created_date: new Date().toISOString()
+        };
+        waypoints.push(newWaypoint);
+        localStorage.setItem('ecotrackr_waypoints', JSON.stringify(waypoints));
+        return newWaypoint;
+      } catch (error) {
+        console.error("Error creating waypoint:", error);
+        throw error;
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['waypoints'] });
       onClose();
