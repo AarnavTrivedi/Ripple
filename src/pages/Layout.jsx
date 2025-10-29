@@ -1,7 +1,7 @@
 
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Home, Map, TrendingUp, Camera, User } from "lucide-react";
+import { Home, Map, TrendingUp, Camera, User, MessageCircle } from "lucide-react";
 
 export default function Layout({ children }) {
   const location = useLocation();
@@ -11,6 +11,7 @@ export default function Layout({ children }) {
     { name: "Map", url: createPageUrl("Map"), icon: Map },
     { name: "Analytics", url: createPageUrl("Analytics"), icon: TrendingUp },
     { name: "Scanner", url: createPageUrl("Scanner"), icon: Camera },
+    { name: "Chatbot", url: createPageUrl("Chatbot"), icon: MessageCircle },
     { name: "Profile", url: createPageUrl("Profile"), icon: User },
   ];
 

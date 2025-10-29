@@ -8,6 +8,8 @@ import Analytics from "./Analytics";
 
 import Scanner from "./Scanner";
 
+import Chatbot from "./Chatbot";
+
 import Profile from "./Profile";
 
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
@@ -21,6 +23,8 @@ const PAGES = {
     Analytics: Analytics,
     
     Scanner: Scanner,
+    
+    Chatbot: Chatbot,
     
     Profile: Profile,
     
@@ -58,6 +62,8 @@ function PagesContent() {
                 <Route path="/Analytics" element={<Analytics />} />
                 
                 <Route path="/Scanner" element={<Scanner />} />
+                
+                <Route path="/Chatbot" element={<Chatbot />} />
                 
                 <Route path="/Profile" element={<Profile />} />
                 
