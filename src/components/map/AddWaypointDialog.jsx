@@ -28,14 +28,14 @@ export default function AddWaypointDialog({ open, onClose }) {
   const createMutation = useMutation({
     mutationFn: async (data) => {
       try {
-        const waypoints = JSON.parse(localStorage.getItem('ecotrackr_waypoints') || '[]');
+        const waypoints = JSON.parse(localStorage.getItem('ripple_waypoints') || '[]');
         const newWaypoint = {
           ...data,
           id: Date.now().toString(),
           created_date: new Date().toISOString()
         };
         waypoints.push(newWaypoint);
-        localStorage.setItem('ecotrackr_waypoints', JSON.stringify(waypoints));
+        localStorage.setItem('ripple_waypoints', JSON.stringify(waypoints));
         return newWaypoint;
       } catch (error) {
         console.error("Error creating waypoint:", error);

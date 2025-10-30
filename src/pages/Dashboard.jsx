@@ -10,12 +10,12 @@ import ActivityLogger from "../components/dashboard/ActivityLogger";
 
 // Mock user data
 const mockUser = {
-  email: "demo@ecotrackr.app",
+  email: "demo@ripple.app",
   name: "Demo User"
 };
 
 // Mock data storage key
-const STORAGE_KEY = "ecotrackr_data";
+const STORAGE_KEY = "ripple_data";
 
 // Get stored data from localStorage
 const getStoredData = () => {

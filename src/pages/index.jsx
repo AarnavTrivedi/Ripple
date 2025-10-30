@@ -12,7 +12,13 @@ import Chatbot from "./Chatbot";
 
 import Profile from "./Profile";
 
-import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
+import Onboarding from "./Onboarding";
+
+import OnboardingComplete from "./OnboardingComplete";
+
+import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
+
+import { isQuizCompleted } from '@/utils/quizStorage';
 
 const PAGES = {
     
@@ -28,6 +34,28 @@ const PAGES = {
     
     Profile: Profile,
     
+    Onboarding: Onboarding,
+    
+    OnboardingComplete: OnboardingComplete,
+    
+}
+
+// Protected Route Component - redirects to onboarding if quiz not completed
+const ProtectedRoute = ({ children }) => {
+    const quizCompleted = isQuizCompleted();
+    const location = useLocation();
+    
+    // Allow access to onboarding and onboarding-complete pages
+    if (location.pathname === '/onboarding' || location.pathname === '/onboarding-complete') {
+        return children;
+    }
+    
+    // Redirect to onboarding if quiz not completed
+    if (!quizCompleted) {
+        return <Navigate to="/onboarding" replace />;
+    }
+    
+    return children;
 }
 
 function _getCurrentPage(url) {
@@ -47,28 +75,41 @@ function _getCurrentPage(url) {
 function PagesContent() {
     const location = useLocation();
     const currentPage = _getCurrentPage(location.pathname);
+    const isOnboarding = location.pathname === '/onboarding' || location.pathname === '/onboarding-complete';
+    
+    // Render onboarding pages without Layout
+    if (isOnboarding) {
+        return (
+            <Routes>
+                <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/onboarding-complete" element={<OnboardingComplete />} />
+            </Routes>
+        );
+    }
     
     return (
-        <Layout currentPageName={currentPage}>
-            <Routes>            
-                
-                    <Route path="/" element={<Dashboard />} />
-                
-                
-                <Route path="/Dashboard" element={<Dashboard />} />
-                
-                <Route path="/Map" element={<Map />} />
-                
-                <Route path="/Analytics" element={<Analytics />} />
-                
-                <Route path="/Scanner" element={<Scanner />} />
-                
-                <Route path="/Chatbot" element={<Chatbot />} />
-                
-                <Route path="/Profile" element={<Profile />} />
-                
-            </Routes>
-        </Layout>
+        <ProtectedRoute>
+            <Layout currentPageName={currentPage}>
+                <Routes>            
+                    
+                        <Route path="/" element={<Dashboard />} />
+                    
+                    
+                    <Route path="/Dashboard" element={<Dashboard />} />
+                    
+                    <Route path="/Map" element={<Map />} />
+                    
+                    <Route path="/Analytics" element={<Analytics />} />
+                    
+                    <Route path="/Scanner" element={<Scanner />} />
+                    
+                    <Route path="/Chatbot" element={<Chatbot />} />
+                    
+                    <Route path="/Profile" element={<Profile />} />
+                    
+                </Routes>
+            </Layout>
+        </ProtectedRoute>
     );
 }
 

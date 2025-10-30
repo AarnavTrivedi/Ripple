@@ -8,13 +8,13 @@ import { format, subDays } from "date-fns";
 
 // Mock user data
 const mockUser = {
-  email: "demo@ecotrackr.app",
+  email: "demo@ripple.app",
   name: "Demo User"
 };
 
 // Storage keys
-const STORAGE_KEY = "ecotrackr_data";
-const EMISSIONS_KEY = "ecotrackr_emissions";
+const STORAGE_KEY = "ripple_data";
+const EMISSIONS_KEY = "ripple_emissions";
 
 // Get stored data from localStorage
 const getStoredData = () => {
@@ -105,7 +105,7 @@ export default function Analytics() {
     driving: score.driving_minutes || 0
   }));
 
-  const totalCarbon = ecoScores.reduce((sum, s) => sum + (s.carbon_saved_kg || 0), 0);
+  const totalCarbon = ecoScores.reduce((sum, s) => sum + (parseFloat(s.carbon_saved_kg) || 0), 0);
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#1a2f26]">

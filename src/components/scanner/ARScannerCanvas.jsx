@@ -1,5 +1,6 @@
 import { XR, createXRStore } from '@react-three/xr';
 import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Camera, X, Scan } from 'lucide-react';
@@ -117,24 +118,48 @@ const ARScannerCanvas = ({ children, mode = '3d' }) => {
       
       {/* Three.js Canvas with XR */}
       <Canvas
-        camera={{ position: [0, 1.6, 0], fov: 60 }}
+        camera={{ position: [0, 1.6, 5], fov: 60 }}
         gl={{ 
           antialias: true, 
           alpha: true,
           preserveDrawingBuffer: true 
         }}
         style={{ 
-          touchAction: 'none',
+          touchAction: isInAR ? 'none' : 'auto',
           width: '100%',
-          height: '100%'
+          height: '100%',
+          cursor: 'grab'
         }}
       >
+        {/* Lighting for 3D/AR */}
+        <ambientLight intensity={0.8} />
+        <directionalLight position={[5, 5, 5]} intensity={1} />
+        <pointLight position={[-5, 5, -5]} color="#10b981" intensity={0.5} />
+        
+        {/* OrbitControls - Enable drag to rotate and zoom (outside XR) */}
+        {!isInAR && (
+          <OrbitControls
+            enableZoom={true}
+            enablePan={true}
+            enableRotate={true}
+            minDistance={2}
+            maxDistance={20}
+            minPolarAngle={0}
+            maxPolarAngle={Math.PI / 1.5}
+            autoRotate={false}
+            dampingFactor={0.05}
+            enableDamping={true}
+            zoomSpeed={1}
+            rotateSpeed={1}
+            panSpeed={1}
+            touches={{
+              ONE: 2, // TOUCH.ROTATE
+              TWO: 1  // TOUCH.DOLLY_PAN
+            }}
+          />
+        )}
+        
         <XR store={store}>
-          {/* Lighting for 3D/AR */}
-          <ambientLight intensity={0.8} />
-          <directionalLight position={[5, 5, 5]} intensity={1} />
-          <pointLight position={[-5, 5, -5]} color="#10b981" intensity={0.5} />
-          
           {children}
         </XR>
       </Canvas>

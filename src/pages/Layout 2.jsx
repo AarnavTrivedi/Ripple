@@ -21,9 +21,9 @@ export default function Layout({ children }) {
         {children}
       </main>
 
-      {/* Bottom Navigation - Enhanced Glassmorphism with Better Contrast */}
+      {/* Bottom Navigation - Glassmorphism */}
       <nav className="fixed bottom-6 left-6 right-6 z-50">
-        <div className="bg-white/95 backdrop-blur-xl border-2 border-emerald-500/20 rounded-[2rem] shadow-2xl shadow-emerald-900/20 px-4 py-3">
+        <div className="bg-white/80 backdrop-blur-xl border border-white/10 rounded-[2rem] shadow-lg px-4 py-3">
           <div className="flex items-center justify-between max-w-lg mx-auto">
             {navItems.map((item) => {
               const isActive = location.pathname === item.url;
@@ -32,17 +32,17 @@ export default function Layout({ children }) {
                 <Link
                   key={item.name}
                   to={item.url}
-                  className="flex flex-col items-center gap-1.5 transition-all min-w-[60px]"
+                  className="flex flex-col items-center gap-1 transition-all min-w-[60px]"
                 >
-                  <div className={`p-2.5 rounded-xl transition-all duration-200 ${
+                  <div className={`p-2.5 rounded-xl transition-all ${
                     isActive
-                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 scale-105' 
-                      : 'text-gray-500 hover:text-emerald-600 hover:bg-emerald-50'
+                      ? 'bg-[#10D9A0] text-white shadow-md shadow-emerald-500/30' 
+                      : 'text-gray-400 hover:text-gray-600'
                   }`}>
                     <Icon className="w-5 h-5" />
                   </div>
-                  <span className={`text-[10px] font-semibold transition-colors ${
-                    isActive ? 'text-emerald-600' : 'text-gray-500'
+                  <span className={`text-[9px] font-medium ${
+                    isActive ? 'text-[#10D9A0]' : 'text-gray-400'
                   }`}>
                     {item.name}
                   </span>
@@ -55,3 +55,4 @@ export default function Layout({ children }) {
     </div>
   );
 }
+

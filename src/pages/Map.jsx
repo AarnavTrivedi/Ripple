@@ -21,12 +21,20 @@ import "leaflet/dist/leaflet.css";
 import EmissionsComparison from "../components/map/EmissionsComparison";
 import HeatmapLayer from "../components/map/HeatmapLayer";
 import AirQualityLegend from "../components/map/AirQualityLegend";
+import AQILegend from "../components/map/AQILegend";
+import TrafficPollutionLegend from "../components/map/TrafficPollutionLegend";
+import TemperatureLegend from "../components/map/TemperatureLegend";
 import LayerControlPanel from "../components/map/LayerControlPanel";
 import GreenSpacesLayer from "../components/map/GreenSpacesLayer";
 import InfrastructureLayer from "../components/map/InfrastructureLayer";
+import AQIIndexLayer from "../components/map/AQIIndexLayer";
+import TrafficPollutionLayer from "../components/map/TrafficPollutionLayer";
+import TemperatureLayer from "../components/map/TemperatureLayer";
 import { useAirQualityData } from "@/hooks/useAirQualityData";
 import { useGreenSpaces } from "@/hooks/useGreenSpaces";
 import { useEcoInfrastructure } from "@/hooks/useEcoInfrastructure";
+import { useTrafficPollution } from "@/hooks/useTrafficPollution";
+import { useTemperature } from "@/hooks/useTemperature";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -133,8 +141,15 @@ export default function MapPage() {
   // Layer control states
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [showAirQualityLegend, setShowAirQualityLegend] = useState(false);
+  const [showAQILegend, setShowAQILegend] = useState(false);
+  const [showTrafficLegend, setShowTrafficLegend] = useState(false);
+  const [showTempLegend, setShowTempLegend] = useState(false);
+  const [baseMapStyle, setBaseMapStyle] = useState('standard');
   const [activeLayers, setActiveLayers] = useState({
     pm25: false,
+    aqi: false,
+    trafficPollution: false,
+    temperature: false,
     greenSpaces: false,
     evCharging: false,
     publicTransit: false
@@ -167,19 +182,45 @@ export default function MapPage() {
     5000 // 5km radius
   );
 
+  // Fetch traffic pollution data
+  const { data: trafficPollutionData } = useTrafficPollution(
+    stableLocation,
+    5000 // 5km radius
+  );
+
+  // Fetch temperature data
+  const { data: temperatureData } = useTemperature(
+    stableLocation,
+    5000 // 5km radius
+  );
+
   // Debug: Log heatmap rendering conditions
   useEffect(() => {
-    console.log('🔍 Heatmap render check:', {
+    console.log('🔍 Map layers render check:', {
       pm25Enabled: activeLayers.pm25,
-      hasData: !!airQualityData,
-      dataPoints: airQualityData?.length || 0,
-      willRender: activeLayers.pm25 && !!airQualityData
+      aqiEnabled: activeLayers.aqi,
+      trafficEnabled: activeLayers.trafficPollution,
+      tempEnabled: activeLayers.temperature,
+      hasAirData: !!airQualityData,
+      hasTrafficData: !!trafficPollutionData,
+      hasTempData: !!temperatureData,
+      airDataPoints: airQualityData?.length || 0,
+      trafficZones: trafficPollutionData?.length || 0,
+      tempZones: temperatureData?.length || 0,
     });
-  }, [activeLayers.pm25, airQualityData]);
+  }, [
+    activeLayers.pm25, 
+    activeLayers.aqi, 
+    activeLayers.trafficPollution, 
+    activeLayers.temperature,
+    airQualityData, 
+    trafficPollutionData,
+    temperatureData
+  ]);
 
   useEffect(() => {
     // Set mock user immediately
-    setCurrentUser({ email: "demo@ecotrackr.app", name: "Demo User" });
+    setCurrentUser({ email: "demo@ripple.app", name: "Demo User" });
   }, []);
 
   useEffect(() => {
@@ -280,7 +321,7 @@ export default function MapPage() {
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
       try {
-        const data = localStorage.getItem('ecotrackr_data');
+        const data = localStorage.getItem('ripple_data');
         const storedData = data ? JSON.parse(data) : { scores: [] };
         const todayScoreData = storedData.scores.find(score => score.date === today);
         return todayScoreData || null;
@@ -295,7 +336,7 @@ export default function MapPage() {
     queryKey: ['waypoints'],
     queryFn: async () => {
       try {
-        const data = localStorage.getItem('ecotrackr_waypoints');
+        const data = localStorage.getItem('ripple_waypoints');
         return data ? JSON.parse(data) : [];
       } catch (error) {
         return [];
@@ -308,7 +349,7 @@ export default function MapPage() {
     queryKey: ['greenActions'],
     queryFn: async () => {
       try {
-        const data = localStorage.getItem('ecotrackr_data');
+        const data = localStorage.getItem('ripple_data');
         const storedData = data ? JSON.parse(data) : { actions: [] };
         return storedData.actions || [];
       } catch (error) {
@@ -322,7 +363,7 @@ export default function MapPage() {
     queryKey: ['hazards'],
     queryFn: async () => {
       try {
-        const data = localStorage.getItem('ecotrackr_hazards');
+        const data = localStorage.getItem('ripple_hazards');
         return data ? JSON.parse(data) : [];
       } catch (error) {
         return [];
@@ -335,7 +376,7 @@ export default function MapPage() {
     queryKey: ['emissions'],
     queryFn: async () => {
       try {
-        const data = localStorage.getItem('ecotrackr_emissions');
+        const data = localStorage.getItem('ripple_emissions');
         return data ? JSON.parse(data) : [];
       } catch (error) {
         return [];
@@ -351,7 +392,7 @@ export default function MapPage() {
         const scoreIndex = storedData.scores.findIndex(score => score.id === id);
         if (scoreIndex !== -1) {
           storedData.scores[scoreIndex] = { ...storedData.scores[scoreIndex], ...data };
-          localStorage.setItem('ecotrackr_data', JSON.stringify(storedData));
+          localStorage.setItem('ripple_data', JSON.stringify(storedData));
           return storedData.scores[scoreIndex];
         }
         return null;
@@ -397,7 +438,7 @@ export default function MapPage() {
           created_date: new Date().toISOString()
         };
         waypoints.push(newWaypoint);
-        localStorage.setItem('ecotrackr_waypoints', JSON.stringify(waypoints));
+        localStorage.setItem('ripple_waypoints', JSON.stringify(waypoints));
         return newWaypoint;
       } catch (error) {
         console.error("Error creating waypoint:", error);
@@ -696,15 +737,21 @@ export default function MapPage() {
     console.log('🎛️ Layer toggle:', layerId, enabled ? 'ON' : 'OFF');
     setActiveLayers(prev => ({ ...prev, [layerId]: enabled }));
     
+    // Show appropriate legends for each layer
     if (layerId === 'pm25') {
       setShowAirQualityLegend(enabled);
-      console.log('📊 Air Quality Legend:', enabled ? 'SHOWING' : 'HIDDEN');
+    } else if (layerId === 'aqi') {
+      setShowAQILegend(enabled);
+    } else if (layerId === 'trafficPollution') {
+      setShowTrafficLegend(enabled);
+    } else if (layerId === 'temperature') {
+      setShowTempLegend(enabled);
     }
   };
 
   const handleBaseMapChange = (style) => {
-    // Future: implement different base map styles
-    console.log('Base map changed to:', style);
+    console.log('🗺️ Base map changed to:', style);
+    setBaseMapStyle(style);
   };
 
   const getMarkerIcon = (type, isGreenAction = false) => {
@@ -741,6 +788,34 @@ export default function MapPage() {
   };
 
   const TransportIcon = transportIcons[currentTransportMode] || Footprints;
+
+  // Get tile layer configuration based on base map style
+  const getTileLayerConfig = () => {
+    switch (baseMapStyle) {
+      case 'satellite':
+        return {
+          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          attribution: '&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+          maxZoom: 19
+        };
+      case 'dark':
+        return {
+          url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          maxZoom: 19,
+          subdomains: 'abcd'
+        };
+      case 'standard':
+      default:
+        return {
+          url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        };
+    }
+  };
+
+  const tileConfig = getTileLayerConfig();
 
   if (!userLocation) {
     return (
@@ -838,9 +913,11 @@ export default function MapPage() {
           zoomControl={true}
         >
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; OpenStreetMap contributors'
-            maxZoom={19}
+            key={baseMapStyle}
+            url={tileConfig.url}
+            attribution={tileConfig.attribution}
+            maxZoom={tileConfig.maxZoom}
+            {...(tileConfig.subdomains && { subdomains: tileConfig.subdomains })}
           />
           
           <LocationMarker position={userLocation} accuracy={locationAccuracy} isTracking={isTracking} />
@@ -848,6 +925,21 @@ export default function MapPage() {
           {/* Air Quality Heatmap Layer */}
           {activeLayers.pm25 && airQualityData && (
             <HeatmapLayer data={airQualityData} />
+          )}
+
+          {/* AQI Index Layer with Stations */}
+          {activeLayers.aqi && airQualityData && (
+            <AQIIndexLayer data={airQualityData} showCircles={true} />
+          )}
+
+          {/* Traffic Pollution Layer */}
+          {activeLayers.trafficPollution && trafficPollutionData && (
+            <TrafficPollutionLayer data={trafficPollutionData} showRoads={true} />
+          )}
+
+          {/* Temperature Layer */}
+          {activeLayers.temperature && temperatureData && (
+            <TemperatureLayer data={temperatureData} showZones={true} unit="F" />
           )}
 
           {/* Green Spaces Layer */}
@@ -1067,6 +1159,24 @@ export default function MapPage() {
 
         {/* Air Quality Legend */}
         <AirQualityLegend visible={showAirQualityLegend} />
+        
+        {/* AQI Legend */}
+        <AQILegend 
+          visible={showAQILegend} 
+          onClose={() => setShowAQILegend(false)} 
+        />
+
+        {/* Traffic Pollution Legend */}
+        <TrafficPollutionLegend 
+          visible={showTrafficLegend} 
+          onClose={() => setShowTrafficLegend(false)} 
+        />
+
+        {/* Temperature Legend */}
+        <TemperatureLegend 
+          visible={showTempLegend} 
+          onClose={() => setShowTempLegend(false)} 
+        />
       </div>
 
       <Sheet open={showTransportSheet} onOpenChange={setShowTransportSheet}>

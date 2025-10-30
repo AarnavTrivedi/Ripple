@@ -9,18 +9,15 @@ export default function LayerControlPanel({ onLayerToggle, onBaseMapChange, onCl
   const [activeLayers, setActiveLayers] = useState({
     pm25: false,
     aqi: false,
-    trafficPollution: false,
     temperature: false,
     greenSpaces: false,
-    evCharging: false,
-    publicTransit: false,
+    traffic: false,
   });
 
   const [activeBaseMap, setActiveBaseMap] = useState('standard');
 
   const handleLayerToggle = (layerId) => {
     const newState = !activeLayers[layerId];
-    console.log('🎛️ [LayerControlPanel] Toggling:', layerId, newState ? 'ON' : 'OFF');
     setActiveLayers(prev => ({ ...prev, [layerId]: newState }));
     onLayerToggle?.(layerId, newState);
   };
@@ -58,59 +55,31 @@ export default function LayerControlPanel({ onLayerToggle, onBaseMapChange, onCl
         </div>
         
         <div className="space-y-3 pl-6">
-          {/* PM2.5 Heatmap */}
           <div className="flex items-center justify-between">
-            <Label className="text-white text-sm cursor-pointer font-medium" htmlFor="pm25">
+            <Label className="text-white text-sm cursor-pointer" htmlFor="pm25">
               PM2.5 Heatmap
             </Label>
             <Switch
               id="pm25"
               checked={activeLayers.pm25}
               onCheckedChange={() => handleLayerToggle('pm25')}
-              className="data-[state=checked]:bg-emerald-500"
             />
           </div>
 
-          {/* AQI Index - CUSTOM TOGGLE BUTTON */}
-          <div 
-            className="flex items-center justify-between cursor-pointer hover:bg-white/5 p-2 -mx-2 rounded-lg transition-colors"
-            onClick={() => handleLayerToggle('aqi')}
-          >
-            <span className="text-white text-sm font-medium">
-              AQI Index
-            </span>
-            <div 
-              className={`w-9 h-5 rounded-full transition-colors ${
-                activeLayers.aqi ? 'bg-emerald-500' : 'bg-gray-400'
-              }`}
-            >
-              <div 
-                className={`w-4 h-4 rounded-full bg-white shadow-lg transition-transform mt-0.5 ${
-                  activeLayers.aqi ? 'translate-x-4' : 'translate-x-0.5'
-                }`}
-              />
-            </div>
+          <div className="flex items-center justify-between opacity-50">
+            <Label className="text-white text-sm">AQI Index</Label>
+            <Switch
+              disabled
+              checked={activeLayers.aqi}
+            />
           </div>
 
-          {/* Traffic Pollution - CUSTOM TOGGLE BUTTON */}
-          <div 
-            className="flex items-center justify-between cursor-pointer hover:bg-white/5 p-2 -mx-2 rounded-lg transition-colors"
-            onClick={() => handleLayerToggle('trafficPollution')}
-          >
-            <span className="text-white text-sm font-medium">
-              Traffic Pollution
-            </span>
-            <div 
-              className={`w-9 h-5 rounded-full transition-colors ${
-                activeLayers.trafficPollution ? 'bg-emerald-500' : 'bg-gray-400'
-              }`}
-            >
-              <div 
-                className={`w-4 h-4 rounded-full bg-white shadow-lg transition-transform mt-0.5 ${
-                  activeLayers.trafficPollution ? 'translate-x-4' : 'translate-x-0.5'
-                }`}
-              />
-            </div>
+          <div className="flex items-center justify-between opacity-50">
+            <Label className="text-white text-sm">Traffic Pollution</Label>
+            <Switch
+              disabled
+              checked={activeLayers.traffic}
+            />
           </div>
         </div>
       </div>
@@ -123,38 +92,23 @@ export default function LayerControlPanel({ onLayerToggle, onBaseMapChange, onCl
         </div>
         
         <div className="space-y-3 pl-6">
-          {/* Green Spaces */}
           <div className="flex items-center justify-between">
-            <Label className="text-white text-sm cursor-pointer font-medium" htmlFor="greenSpaces">
+            <Label className="text-white text-sm cursor-pointer" htmlFor="greenSpaces">
               Green Spaces
             </Label>
             <Switch
               id="greenSpaces"
               checked={activeLayers.greenSpaces}
               onCheckedChange={() => handleLayerToggle('greenSpaces')}
-              className="data-[state=checked]:bg-emerald-500"
             />
           </div>
 
-          {/* Temperature - CUSTOM TOGGLE BUTTON */}
-          <div 
-            className="flex items-center justify-between cursor-pointer hover:bg-white/5 p-2 -mx-2 rounded-lg transition-colors"
-            onClick={() => handleLayerToggle('temperature')}
-          >
-            <span className="text-white text-sm font-medium">
-              Temperature
-            </span>
-            <div 
-              className={`w-9 h-5 rounded-full transition-colors ${
-                activeLayers.temperature ? 'bg-emerald-500' : 'bg-gray-400'
-              }`}
-            >
-              <div 
-                className={`w-4 h-4 rounded-full bg-white shadow-lg transition-transform mt-0.5 ${
-                  activeLayers.temperature ? 'translate-x-4' : 'translate-x-0.5'
-                }`}
-              />
-            </div>
+          <div className="flex items-center justify-between opacity-50">
+            <Label className="text-white text-sm">Temperature</Label>
+            <Switch
+              disabled
+              checked={activeLayers.temperature}
+            />
           </div>
         </div>
       </div>
@@ -175,7 +129,6 @@ export default function LayerControlPanel({ onLayerToggle, onBaseMapChange, onCl
               id="evCharging"
               checked={activeLayers.evCharging}
               onCheckedChange={() => handleLayerToggle('evCharging')}
-              className="data-[state=checked]:bg-emerald-500"
             />
           </div>
 
@@ -187,7 +140,6 @@ export default function LayerControlPanel({ onLayerToggle, onBaseMapChange, onCl
               id="publicTransit"
               checked={activeLayers.publicTransit}
               onCheckedChange={() => handleLayerToggle('publicTransit')}
-              className="data-[state=checked]:bg-emerald-500"
             />
           </div>
         </div>
@@ -221,7 +173,13 @@ export default function LayerControlPanel({ onLayerToggle, onBaseMapChange, onCl
         </div>
       </div>
 
-
+      {/* Coming Soon Notice */}
+      <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-400/20 rounded-lg">
+        <p className="text-emerald-300 text-xs font-medium mb-1">✨ Just Added!</p>
+        <p className="text-emerald-200/60 text-[10px]">
+          🌳 Green Spaces, ⚡ EV Charging, and 🚇 Public Transit layers are now live!
+        </p>
+      </div>
     </Card>
   );
 }

@@ -1,18 +1,15 @@
 import { useState, useEffect, useRef } from "react";
+import { base44 } from "@/api/base44Client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Send, Loader2, Leaf } from "lucide-react";
 
-// Gemini API Configuration
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "YOUR_GEMINI_API_KEY_HERE";
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
-
 export default function Chatbot() {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      content: "Hi! I'm your Ripple AI assistant. Ask me anything about environmental topics, sustainability tips, or how to reduce your carbon footprint! 🌍"
+      content: "Hi! I'm your EcoTrackr AI assistant. Ask me anything about environmental topics, sustainability tips, or how to reduce your carbon footprint! 🌍"
     }
   ]);
   const [input, setInput] = useState("");
@@ -38,70 +35,26 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      // Call Gemini API
-      const response = await fetch(GEMINI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: `You are an eco-friendly AI assistant for Ripple, an environmental tracking app. You help users understand environmental topics, provide sustainability tips, and offer actionable advice for reducing carbon footprints.
-
+      // Call AI
+      const response = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are an eco-friendly AI assistant for EcoTrackr, an environmental tracking app. 
+        
 User question: ${userMessage}
 
-Provide a helpful, friendly response focused on environmental topics, sustainability, eco-tips, and climate action. Keep responses concise (2-3 paragraphs max) and actionable. Use emojis occasionally to make it friendly and engaging.`
-                }
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            }
-          ]
-        })
+Provide a helpful, friendly response focused on environmental topics, sustainability, eco-tips, and climate action. Keep responses concise (2-3 paragraphs max) and actionable. Use emojis occasionally to make it friendly.`,
+        add_context_from_internet: true
       });
-
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't generate a response. Please try again!";
 
       // Add AI response
       setMessages(prev => [...prev, { 
         role: "assistant", 
-        content: aiResponse
+        content: response || "I'm sorry, I couldn't generate a response. Please try again!" 
       }]);
     } catch (error) {
       console.error("Chatbot error:", error);
       setMessages(prev => [...prev, { 
         role: "assistant", 
-        content: "Sorry, I encountered an error. Please check your API key and try again! 😅" 
+        content: "Sorry, I encountered an error. Please try again! 😅" 
       }]);
     } finally {
       setIsLoading(false);
@@ -123,7 +76,10 @@ Provide a helpful, friendly response focused on environmental topics, sustainabi
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
- 
+          <div>
+            <h1 className="text-lg font-bold text-white">EcoBot</h1>
+            <p className="text-xs text-emerald-200/60">Your AI Environmental Assistant</p>
+          </div>
         </div>
       </div>
 

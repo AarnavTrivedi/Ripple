@@ -146,14 +146,25 @@ const GeospatialScanner = () => {
           timestamp: Date.now()
         };
         
+        const isFirstLocation = !userLocation;
         setUserLocation(location);
         
-        // Update view to center on user (first time only)
-        if (!userLocation) {
+        // Fly to user location on first detection
+        if (isFirstLocation && mapRef.current) {
+          console.log('🎯 Flying to user location:', location);
+          mapRef.current.flyTo({
+            center: [location.longitude, location.latitude],
+            zoom: 14,
+            pitch: 45,
+            bearing: 0,
+            duration: 2000
+          });
+          
           setViewState(prev => ({
             ...prev,
             longitude: location.longitude,
-            latitude: location.latitude
+            latitude: location.latitude,
+            zoom: 14
           }));
         }
         
@@ -397,25 +408,75 @@ const GeospatialScanner = () => {
         }}
       />
       
-      {/* Header UI */}
-      <div className="absolute top-0 left-0 right-0 bg-[#0f5132]/80 backdrop-blur-xl border-b border-emerald-500/20 px-4 py-3" style={{ zIndex: 10 }}>
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-white">🌍 Geospatial Scanner</h1>
-          <div className="flex gap-2">
+      {/* Header UI with Layer Filters */}
+      <div className="absolute top-0 left-0 right-0 bg-[#0f5132]/90 backdrop-blur-xl border-b border-emerald-500/20 px-4 py-3" style={{ zIndex: 10 }}>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-bold text-white">🌍 Geospatial Scanner</h1>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (userLocation && mapRef.current) {
+                  mapRef.current.flyTo({
+                    center: [userLocation.longitude, userLocation.latitude],
+                    zoom: 14,
+                    pitch: 45,
+                    bearing: 0,
+                    duration: 1500
+                  });
+                }
+              }}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              <Navigation className="w-4 h-4 mr-1" />
+              My Location
+            </Button>
+          </div>
+          
+          {/* Layer Filter Buttons */}
+          <div className="flex gap-2 flex-wrap">
             <Button
               size="sm"
               onClick={() => handleLayerToggle('airQuality')}
-              className={activeLayers.airQuality ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-white/10 hover:bg-white/20'}
+              className={`transition-all ${activeLayers.airQuality 
+                ? 'bg-emerald-500 hover:bg-emerald-600 text-white' 
+                : 'bg-white/10 hover:bg-white/20 text-white/70'}`}
             >
-              {activeLayers.airQuality ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              <span className="ml-1">Air Quality</span>
+              {activeLayers.airQuality ? <Eye className="w-3.5 h-3.5 mr-1" /> : <EyeOff className="w-3.5 h-3.5 mr-1" />}
+              <span className="text-xs">Air Quality</span>
             </Button>
+            
             <Button
               size="sm"
               onClick={() => handleLayerToggle('greenSpaces')}
-              className={activeLayers.greenSpaces ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-white/10 hover:bg-white/20'}
+              className={`transition-all ${activeLayers.greenSpaces 
+                ? 'bg-green-500 hover:bg-green-600 text-white' 
+                : 'bg-white/10 hover:bg-white/20 text-white/70'}`}
             >
-              <Leaf className="w-4 h-4" />
+              <Leaf className="w-3.5 h-3.5 mr-1" />
+              <span className="text-xs">Green Spaces</span>
+            </Button>
+            
+            <Button
+              size="sm"
+              onClick={() => handleLayerToggle('infrastructure')}
+              className={`transition-all ${activeLayers.infrastructure 
+                ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                : 'bg-white/10 hover:bg-white/20 text-white/70'}`}
+            >
+              <Layers className="w-3.5 h-3.5 mr-1" />
+              <span className="text-xs">Infrastructure</span>
+            </Button>
+            
+            <Button
+              size="sm"
+              onClick={() => handleLayerToggle('route')}
+              className={`transition-all ${activeLayers.route 
+                ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                : 'bg-white/10 hover:bg-white/20 text-white/70'}`}
+            >
+              <Navigation className="w-3.5 h-3.5 mr-1" />
+              <span className="text-xs">Route</span>
             </Button>
           </div>
         </div>
@@ -447,24 +508,49 @@ const GeospatialScanner = () => {
       </div>
       
       {/* Legend */}
-      <div className="absolute top-20 right-4 bg-black/60 backdrop-blur-md rounded-lg p-3 text-white text-xs max-w-xs" style={{ zIndex: 10 }}>
-        <div className="font-semibold mb-2">Legend</div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-emerald-500 rounded"></div>
-            <span>Good Air Quality</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-500 rounded"></div>
-            <span>Poor Air Quality</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span>Green Spaces</span>
-          </div>
-          <div className="flex items-center gap-2">
+      <div className="absolute top-32 right-4 bg-black/70 backdrop-blur-md rounded-lg p-4 text-white text-xs max-w-[200px]" style={{ zIndex: 10 }}>
+        <div className="font-bold mb-3 text-sm flex items-center gap-2">
+          <Layers className="w-4 h-4" />
+          Legend
+        </div>
+        <div className="space-y-2">
+          {activeLayers.airQuality && (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-emerald-500 rounded"></div>
+                <span>Good Air Quality</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                <span>Moderate Air Quality</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-red-500 rounded"></div>
+                <span>Poor Air Quality</span>
+              </div>
+            </>
+          )}
+          {activeLayers.greenSpaces && (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span>Parks & Green Spaces</span>
+            </div>
+          )}
+          {activeLayers.infrastructure && (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-amber-500 rounded"></div>
+              <span>Eco Infrastructure</span>
+            </div>
+          )}
+          {activeLayers.route && routeHistory.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-cyan-400 rounded-full"></div>
+              <span>Your Route</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 pt-1 border-t border-white/20">
             <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <span>Your Location</span>
+            <span className="font-semibold">Your Location</span>
           </div>
         </div>
       </div>

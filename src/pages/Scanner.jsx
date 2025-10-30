@@ -15,8 +15,8 @@ import ImpactVisualization from "@/components/scanner/ImpactVisualization";
 const GeospatialScanner = lazy(() => import('./GeospatialScanner'));
 
 // Storage keys
-const GREEN_ACTIONS_KEY = "ecotrackr_data";
-const HAZARDS_KEY = "ecotrackr_hazards";
+const GREEN_ACTIONS_KEY = "ripple_data";
+const HAZARDS_KEY = "ripple_hazards";
 
 // Mock green actions data
 const mockGreenActions = [
@@ -174,7 +174,7 @@ export default function Scanner() {
     
     // Save to localStorage
     const today = format(new Date(), 'yyyy-MM-dd');
-    const storedData = JSON.parse(localStorage.getItem('ecotrackr_data') || '{"scores":[],"actions":[],"challenges":[]}');
+    const storedData = JSON.parse(localStorage.getItem('ripple_data') || '{"scores":[],"actions":[],"challenges":[]}');
     storedData.challenges = storedData.challenges || [];
     storedData.challenges.push({
       ...challenge,
@@ -190,7 +190,7 @@ export default function Scanner() {
       todayScore.green_actions_completed = (todayScore.green_actions_completed || 0) + 1;
     }
     
-    localStorage.setItem('ecotrackr_data', JSON.stringify(storedData));
+    localStorage.setItem('ripple_data', JSON.stringify(storedData));
     
     setTimeout(() => setShowCelebration(false), 3000);
   };
@@ -200,7 +200,7 @@ export default function Scanner() {
     queryKey: ['todayScore'],
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd');
-      const data = localStorage.getItem('ecotrackr_data');
+      const data = localStorage.getItem('ripple_data');
       const storedData = data ? JSON.parse(data) : { scores: [] };
       return storedData.scores.find(score => score.date === today) || {
         carbon_saved_kg: 0,
